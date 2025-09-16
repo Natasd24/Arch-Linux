@@ -76,7 +76,7 @@ EOT
 cat <<EOT > /boot/loader/loader.conf
 EOT
 useradd -m -G wheel -s /bin/bash Nameless
-echo "Nameless:user123" | chpasswd
+echo "Nameless:dark-arch" | chpasswd
 
 # Dar sudo al grupo wheel
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
@@ -121,7 +121,7 @@ umount -R /mnt
 reboot
 
 # Usuarios y contraseñas
-echo "root:root123" | chpasswd
+echo "root:dark-arch" | chpasswd
 default arch-zen.conf
 timeout 3
 editor  no
