@@ -6,7 +6,7 @@ set -e
 # ==========================
 loadkeys es
 parted /dev/sda --script mklabel gpt \
-    mkpart ESP fat32 1MiB 513MiB set 1 boot on \
+    mkpart ESP fat32 1MiB 513MiB set 1 esp on \
     mkpart primary ext4 513MiB 100%
 
 # ==========================
@@ -19,31 +19,31 @@ mkfs.ext4 /dev/sda2
 # 3. Montar
 # ==========================
 mount /dev/sda2 /mnt
-mkdir /mnt/boot
+mkdir -p /mnt/boot
 mount /dev/sda1 /mnt/boot
 
 # ==========================
 # 4. Optimizar mirrors y descargas
 # ==========================
-pacman -Sy reflector --noconfirm
+pacman -Sy --noconfirm reflector
 reflector --country Mexico,US --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
 
 # ==========================
-# 5. Instalar base (solo kernel zen)
+# 5. Instalar base (solo kernel Zen)
 # ==========================
 pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
     vim nano networkmanager sudo
 
 # ==========================
-# 6. Fstab
+# 6. Generar fstab
 # ==========================
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # ==========================
-# 7. Chroot
+# 7. Chroot y configuración
 # ==========================
-arch-chroot /mnt /bin/bash <<EOF
+arch-chroot /mnt /bin/bash <<'EOF'
 
 # Zona horaria y locales
 ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime
@@ -60,23 +60,29 @@ cat <<EOT > /etc/hosts
 127.0.0.1   localhost
 ::1         localhost
 127.0.1.1   Arch-Nameless.localdomain Arch-Nameless
+EOT
 systemctl enable NetworkManager
 
-# Bootloader (solo zen)
+# Bootloader (systemd-boot)
 bootctl install
-UUID=\$(blkid -s UUID -o value /dev/sda2)
-
+UUID=$(blkid -s UUID -o value /dev/sda2)
 cat <<EOT > /boot/loader/entries/arch-zen.conf
 title   Arch Linux (Zen)
 linux   /vmlinuz-linux-zen
 initrd  /initramfs-linux-zen.img
-options root=UUID=\$UUID rw
+options root=UUID=$UUID rw
 EOT
 
 cat <<EOT > /boot/loader/loader.conf
+default arch-zen.conf
+timeout 3
+editor  no
 EOT
+
+# Usuarios y contraseñas
+echo "root:root123" | chpasswd
 useradd -m -G wheel -s /bin/bash Nameless
-echo "Nameless:dark-arch" | chpasswd
+echo "Nameless:user123" | chpasswd
 
 # Dar sudo al grupo wheel
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
@@ -109,20 +115,14 @@ EOT
 pacman -S --noconfirm pipewire wireplumber pipewire-audio \
     noto-fonts
 
-# Carpetas de usuario
+# Crear carpetas de usuario
 xdg-user-dirs-update
 
 EOF
 
 # ==========================
-# 8. Reinicio
+# 8. Desmontar y reiniciar
 # ==========================
+swapoff /swapfile || true
 umount -R /mnt
 reboot
-
-# Usuarios y contraseñas
-echo "root:dark-arch" | chpasswd
-default arch-zen.conf
-timeout 3
-editor  no
-
