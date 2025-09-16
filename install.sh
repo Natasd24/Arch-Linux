@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Manejador de errores
+trap 'echo "❌ Error en la línea $LINENO. Revisa el script o los comandos ejecutados." >&2; exit 1' ERR
+
 # ==========================
 # 1. Teclado y particionar disco
 # ==========================
@@ -33,7 +36,7 @@ sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
 # 5. Instalar base (solo kernel Zen)
 # ==========================
 pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo
+    vim nano networkmanager sudo xdg-user-dirs
 
 # ==========================
 # 6. Generar fstab
@@ -97,8 +100,7 @@ echo '/swapfile none swap defaults 0 0' >> /etc/fstab
 # Hyprland base con utilidades mínimas
 pacman -S --needed --noconfirm \
     hyprland seatd polkit kitty wofi eww \
-    wayland xdg-user-dirs xdg-utils \
-    wl-clipboard
+    wayland xdg-utils wl-clipboard
 
 systemctl enable seatd
 
@@ -115,7 +117,7 @@ EOT
 pacman -S --noconfirm pipewire wireplumber pipewire-audio \
     noto-fonts
 
-# Crear carpetas de usuario
+# Crear carpetas de usuario (ahora sí funciona)
 xdg-user-dirs-update
 
 EOF
@@ -123,6 +125,6 @@ EOF
 # ==========================
 # 8. Desmontar y reiniciar
 # ==========================
-swapoff /swapfile || true
+swapoff /mnt/swapfile || true
 umount -R /mnt
 reboot
