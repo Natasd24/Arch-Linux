@@ -89,13 +89,6 @@ echo "Nameless:user123" | chpasswd
 # Dar sudo al grupo wheel
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# Swapfile
-fallocate -l 8G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap defaults 0 0' >> /etc/fstab
-
 # Hyprland con todas las dependencias necesarias
 pacman -S --needed --noconfirm \
     hyprland seatd polkit kitty wofi eww \
