@@ -1,14 +1,12 @@
 #!/bin/bash
 set -e
 
-trap 'echo "❌ Error en la línea $LINENO. Revisa el script o los comandos ejecutados." >&2; exit 1' ERR
-
 # ==========================
 # 1. Teclado y particionar disco
 # ==========================
 loadkeys es
 parted /dev/sda --script mklabel gpt \
-    mkpart ESP fat32 1MiB 513MiB set 1 esp on \
+    mkpart ESP fat32 1MiB 513MiB set 1 boot on \
     mkpart primary ext4 513MiB 100%
 
 # ==========================
@@ -21,31 +19,32 @@ mkfs.ext4 /dev/sda2
 # 3. Montar
 # ==========================
 mount /dev/sda2 /mnt
-mkdir -p /mnt/boot
+mkdir /mnt/boot
 mount /dev/sda1 /mnt/boot
 
 # ==========================
 # 4. Optimizar mirrors y descargas
 # ==========================
-pacman -Sy --noconfirm reflector
+pacman -Sy reflector --noconfirm
 reflector --country Mexico,US --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
 
 # ==========================
-# 5. Instalar base (solo kernel Zen)
+# 5. Instalar base (solo kernel zen)
 # ==========================
-pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo xdg-user-dirs
+pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
+    vim nano networkmanager sudo
 
 # ==========================
-# 6. Generar fstab
+# 6. Fstab
 # ==========================
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # ==========================
-# 7. Chroot y configuración
+# 7. Chroot
 # ==========================
-arch-chroot /mnt /bin/bash <<'EOF'
+arch-chroot /mnt /bin/bash <<EOF
 
 # Zona horaria y locales
 ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime
@@ -65,14 +64,15 @@ cat <<EOT > /etc/hosts
 EOT
 systemctl enable NetworkManager
 
-# Bootloader (systemd-boot)
+# Bootloader (solo zen)
 bootctl install
-UUID=$(blkid -s UUID -o value /dev/sda2)
+UUID=\$(blkid -s UUID -o value /dev/sda2)
+
 cat <<EOT > /boot/loader/entries/arch-zen.conf
 title   Arch Linux (Zen)
 linux   /vmlinuz-linux-zen
 initrd  /initramfs-linux-zen.img
-options root=UUID=$UUID rw
+options root=UUID=\$UUID rw
 EOT
 
 cat <<EOT > /boot/loader/loader.conf
@@ -89,45 +89,32 @@ echo "Nameless:user123" | chpasswd
 # Dar sudo al grupo wheel
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# Hyprland con todas las dependencias necesarias
+# Hyprland + utilidades mínimas y recomendadas
 pacman -S --needed --noconfirm \
-    hyprland seatd polkit kitty wofi eww \
-    wayland xdg-utils wl-clipboard xdg-desktop-portal-hyprland \
-    pipewire wireplumber pipewire-audio pipewire-pulse \
-    noto-fonts noto-fonts-emoji
+    hyprland seatd polkit lxqt-policykit \
+    kitty wofi eww wayland xdg-user-dirs xdg-utils \
+    wl-clipboard xdg-desktop-portal-hyprland \
+    noto-fonts noto-fonts-emoji noto-fonts-cjk \
+    pipewire pipewire-pulse pipewire-alsa wireplumber
 
-# Configurar seatd
 systemctl enable seatd
-usermod -a -G seat Nameless
 
-# Configurar greetd - primero verificar si el usuario greeter existe
-if ! id "greeter" &>/dev/null; then
-    useradd -M -s /bin/false greeter
-fi
-
+# Login manager (greetd + tuigreet)
 pacman -S --noconfirm greetd greetd-tuigreet
 systemctl enable greetd
-
-mkdir -p /etc/greetd
 cat <<EOT > /etc/greetd/config.toml
-[terminal]
-vt = 1
-
 [default_session]
-command = "tuigreet --remember --remember-user-session --time --cmd 'Hyprland'"
-user = "greeter"
+command = "tuigreet --cmd /usr/bin/Hyprland"
+user = "Nameless"
 EOT
 
-# Configurar permisos para greetd
-chown -R greeter:greeter /etc/greetd
-
-# Crear carpetas de usuario para Nameless
-sudo -u Nameless xdg-user-dirs-update
+# Carpetas de usuario
+xdg-user-dirs-update
 
 EOF
 
 # ==========================
-# 8. Desmontar y reiniciar
+# 8. Reinicio
 # ==========================
 umount -R /mnt
 reboot
