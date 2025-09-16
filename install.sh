@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Manejador de errores
 trap 'echo "❌ Error en la línea $LINENO. Revisa el script o los comandos ejecutados." >&2; exit 1' ERR
 
 # ==========================
@@ -35,7 +34,7 @@ sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
 # ==========================
 # 5. Instalar base (solo kernel Zen)
 # ==========================
-pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
     vim nano networkmanager sudo xdg-user-dirs
 
 # ==========================
@@ -84,7 +83,7 @@ EOT
 
 # Usuarios y contraseñas
 echo "root:root123" | chpasswd
-useradd -m -G wheel -s /bin/bash Nameless
+useradd -m -G wheel,seat -s /bin/bash Nameless
 echo "Nameless:user123" | chpasswd
 
 # Dar sudo al grupo wheel
@@ -97,34 +96,42 @@ mkswap /swapfile
 swapon /swapfile
 echo '/swapfile none swap defaults 0 0' >> /etc/fstab
 
-# Hyprland base con utilidades mínimas
+# Hyprland con todas las dependencias necesarias
 pacman -S --needed --noconfirm \
     hyprland seatd polkit kitty wofi eww \
-    wayland xdg-utils wl-clipboard
+    wayland xdg-utils wl-clipboard xdg-desktop-portal-hyprland \
+    pipewire wireplumber pipewire-audio pipewire-pulse \
+    noto-fonts noto-fonts-emoji
 
+# Configurar seatd
 systemctl enable seatd
+usermod -a -G seat Nameless
 
-# Login manager (greetd + tuigreet)
+# Configurar greetd
 pacman -S --noconfirm greetd greetd-tuigreet
 systemctl enable greetd
+
+mkdir -p /etc/greetd
 cat <<EOT > /etc/greetd/config.toml
+[terminal]
+vt = 1
+
 [default_session]
-command = "tuigreet --cmd Hyprland"
-user = "Nameless"
+command = "tuigreet --remember --remember-user-session --time --cmd 'Hyprland'"
+user = "greeter"
 EOT
 
-# Audio mínimo y fuentes básicas
-pacman -S --noconfirm pipewire wireplumber pipewire-audio \
-    noto-fonts
+# Crear usuario greeter
+useradd -M -s /bin/false greeter
+chown -R greeter:greeter /etc/greetd
 
-# Crear carpetas de usuario (ahora sí funciona)
-xdg-user-dirs-update
+# Crear carpetas de usuario
+sudo -u Nameless xdg-user-dirs-update
 
 EOF
 
 # ==========================
 # 8. Desmontar y reiniciar
 # ==========================
-swapoff /mnt/swapfile || true
 umount -R /mnt
 reboot
