@@ -23,26 +23,18 @@ mkdir /mnt/boot
 mount /dev/sda1 /mnt/boot
 
 # ==========================
-# 4. Optimizar mirrors y descargas
-# ==========================
-pacman -Sy reflector --noconfirm
-reflector --country Mexico,US --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
-sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
-
-# ==========================
-# 5. Instalar base (solo kernel zen)
+# 4. Instalar base (solo kernel zen)
 # ==========================
 pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
     vim nano networkmanager sudo
 
 # ==========================
-# 6. Fstab
+# 5. Fstab
 # ==========================
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # ==========================
-# 7. Chroot
+# 6. Chroot
 # ==========================
 arch-chroot /mnt /bin/bash <<EOF
 
@@ -114,7 +106,7 @@ xdg-user-dirs-update
 EOF
 
 # ==========================
-# 8. Reinicio
+# 7. Reinicio
 # ==========================
 umount -R /mnt
 reboot
