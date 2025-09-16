@@ -100,7 +100,11 @@ pacman -S --needed --noconfirm \
 systemctl enable seatd
 usermod -a -G seat Nameless
 
-# Configurar greetd
+# Configurar greetd - primero verificar si el usuario greeter existe
+if ! id "greeter" &>/dev/null; then
+    useradd -M -s /bin/false greeter
+fi
+
 pacman -S --noconfirm greetd greetd-tuigreet
 systemctl enable greetd
 
@@ -114,11 +118,10 @@ command = "tuigreet --remember --remember-user-session --time --cmd 'Hyprland'"
 user = "greeter"
 EOT
 
-# Crear usuario greeter
-useradd -M -s /bin/false greeter
+# Configurar permisos para greetd
 chown -R greeter:greeter /etc/greetd
 
-# Crear carpetas de usuario
+# Crear carpetas de usuario para Nameless
 sudo -u Nameless xdg-user-dirs-update
 
 EOF
