@@ -40,7 +40,7 @@ mount /dev/sda1 /mnt/boot/efi
 # 4. Instalar base (solo kernel zen)
 # ==========================
 pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo parted neofetch
+    vim nano networkmanager sudo parted
 
 # ==========================
 # 5. Fstab
@@ -101,7 +101,8 @@ pacman -S --needed --noconfirm \
     kitty wofi eww wayland xdg-user-dirs xdg-utils \
     wl-clipboard xdg-desktop-portal-hyprland \
     noto-fonts noto-fonts-emoji noto-fonts-cjk \
-    pipewire pipewire-pulse pipewire-alsa wireplumber
+    pipewire pipewire-pulse pipewire-alsa wireplumber \
+    neofetch  # Agregar neofetch
 
 systemctl enable seatd
 
@@ -124,14 +125,35 @@ EOT
 # Configurar permisos para greetd
 chown -R greetd:greetd /etc/greetd
 
-# Crear carpetas de usuario (Documentos, Descargas, etc.)
-# Esto se ejecutará cuando el usuario inicie sesión por primera vez
+# Carpetas de usuario XDG
 pacman -S --noconfirm xdg-user-dirs
 echo "#!/bin/bash" > /etc/profile.d/xdg-dirs.sh
 echo "if [ -n \"\\\$XDG_SESSION_TYPE\" ]; then" >> /etc/profile.d/xdg-dirs.sh
 echo "    xdg-user-dirs-update" >> /etc/profile.d/xdg-dirs.sh
 echo "fi" >> /etc/profile.d/xdg-dirs.sh
 chmod +x /etc/profile.d/xdg-dirs.sh
+
+# Instalar VirtualBox Guest Additions si estamos en VirtualBox
+if dmesg | grep -i "virtualbox" > /dev/null 2>&1; then
+    echo "=== DETECTADO VIRTUALBOX - INSTALANDO GUEST ADDITIONS ==="
+    
+    # Instalar dependencias necesarias
+    pacman -S --noconfirm virtualbox-guest-utils virtualbox-guest-modules-zen
+    
+    # Habilitar servicios de VirtualBox
+    systemctl enable vboxservice.service
+    
+    # Agregar módulos al initramfs
+    echo "vboxguest" >> /etc/modules-load.d/virtualbox.conf
+    echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf
+    echo "vboxvideo" >> /etc/modules-load.d/virtualbox.conf
+    
+    # Agregar usuario al grupo vboxsf para carpetas compartidas
+    usermod -aG vboxsf $username
+    usermod -aG vboxsf greetd
+    
+    echo "VirtualBox Guest Additions instalado correctamente"
+fi
 
 EOF
 
@@ -150,17 +172,159 @@ OnlyShowIn=Hyprland;
 X-GNOME-Autostart-enabled=true
 EOT
 
+# Crear archivo de configuración de neofetch
+mkdir -p /home/$username/.config/neofetch
+cat <<EOT > /home/$username/.config/neofetch/config.conf
+# Configuración de neofetch
+print_info() {
+    info title
+    info underline
+
+    info "OS" distro
+    info "Host" model
+    info "Kernel" kernel
+    info "Uptime" uptime
+    info "Packages" packages
+    info "Shell" shell
+    info "Resolution" resolution
+    info "DE" de
+    info "WM" wm
+    info "WM Theme" wm_theme
+    info "Theme" theme
+    info "Icons" icons
+    info "Terminal" terminal
+    info "Terminal Font" term_font
+    info "CPU" cpu
+    info "GPU" gpu
+    info "Memory" memory
+
+    info cols
+}
+
+# Mostrar logo de Arch
+image_source="\${HOME}/.config/neofetch/arch_logo.txt"
+
+# Colors
+colors=(1 2 3 4 5 6)
+EOT
+
+# Crear logo ASCII de Arch
+cat <<EOT > /home/$username/.config/neofetch/arch_logo.txt
+                   -`
+                  .o+`
+                 `ooo/
+                `+oooo:
+               `+oooooo:
+               -+oooooo+:
+             `/:-:+oooooo+`
+            `/++++/+++++++`
+           `/++++++++++++++`
+          `/+++ooooooooooooo/`
+         ./ooosssso++osssssso+`
+        .oossssso-````/ossssss+`
+       -osssssso.      :ssssssso.
+      :osssssss/        osssso+++.
+     /ossssssss/        +ssssooo/-
+   `/ossssso+/:-        -:/+osssso+-
+  `+sso+:-`                 `.-/+oso:
+ `++:.                           `-/+/
+ .`                                 `/
+EOT
+
+# Configurar neofetch para que se ejecute al iniciar terminal
+echo "neofetch" >> /home/$username/.bashrc
+
 chown -R $username:$username /home/$username
 EOF
 
 # ==========================
-# 8. Reinicio
+# 8. Mostrar información del sistema antes de reiniciar
 # ==========================
-echo "=== INSTALACIÓN COMPLETADA ==="
-echo "Usuario: $username"
-echo "Hostname: Arch-$username"
-neofetch
-echo "El sistema se reiniciará en 5 segundos..."
-sleep 5
+echo ""
+echo "================================================"
+echo "           INSTALACIÓN COMPLETADA"
+echo "================================================"
+echo ""
+echo "╔══════════════════════════════════════════════╗"
+echo "║                INFORMACIÓN DEL SISTEMA       ║"
+echo "╠══════════════════════════════════════════════╣"
+echo "║  Usuario:        $username"
+echo "║  Hostname:       Arch-$username"
+echo "║  Kernel:         Linux Zen (mejor rendimiento)"
+echo "║  Desktop:        Hyprland (Wayland)"
+echo "║  Terminal:       Kitty"
+echo "║  Login Manager:  Greetd + Tuigreet"
+echo "║  Audio:          PipeWire"
+echo "╚══════════════════════════════════════════════╝"
+echo ""
+
+# Mostrar neofetch del sistema instalado (simulado)
+echo "╔══════════════════════════════════════════════╗"
+echo "║               NEOFETCH PREVIEW               ║"
+echo "╠══════════════════════════════════════════════╣"
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "██████████████████████████████████████████████"
+echo "██████████████████████████████████████████████"
+echo "██████████████████████████████████████████████"
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo "        ██████████████████████████████         "
+echo ""
+echo "OS: Arch Linux x86_64"
+echo "Host: Arch-$username"
+echo "Kernel: linux-zen"
+echo "DE: Hyprland"
+echo "WM: Hyprland"
+echo "Terminal: kitty"
+echo "CPU: Virtual CPU"
+echo "Memory: 1024MiB / 2048MiB"
+echo "╚══════════════════════════════════════════════╝"
+echo ""
+
+# Verificar si es VirtualBox y mostrar info
+if dmesg | grep -i "virtualbox" > /dev/null 2>&1; then
+    echo "✅ VirtualBox Guest Additions instalado:"
+    echo "   - Carpetas compartidas habilitadas"
+    echo "   - Integración de mouse"
+    echo "   - Portapapeles compartido"
+    echo "   - Gráficos mejorados"
+    echo ""
+fi
+
+echo "📦 Paquetes instalados:"
+echo "   - Hyprland (Wayland compositor)"
+echo "   - Kitty (terminal)"
+echo "   - Wofi (launcher)"
+echo "   - PipeWire (audio)"
+echo "   - Neofetch (info del sistema)"
+echo "   - VirtualBox Guest Utils (si aplica)"
+echo ""
+
+echo "🚀 El sistema se reiniciará en 10 segundos..."
+echo "   Después del reinicio, inicia sesión con:"
+echo "   Usuario: $username"
+echo "   Contraseña: [la que estableciste]"
+echo ""
+
+for i in {10..1}; do
+    echo -n "⏰ Reiniciando en $i segundos...\r"
+    sleep 1
+done
+
+echo ""
+echo "🔄 Reiniciando sistema..."
+sleep 2
+
+# ==========================
+# 9. Reinicio
+# ==========================
 umount -R /mnt
 reboot
