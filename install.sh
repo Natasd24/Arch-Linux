@@ -2,9 +2,23 @@
 set -e
 
 # ==========================
+# Solicitar datos de usuario
+# ==========================
+echo "=== CONFIGURACIÓN DE USUARIO ==="
+read -p "Nombre de usuario: " username
+read -sp "Contraseña del usuario: " user_password
+echo
+read -sp "Contraseña de root: " root_password
+echo
+
+# ==========================
 # 1. Teclado y particionar disco
 # ==========================
 loadkeys es
+
+# Instalar parted si no está disponible
+pacman -Sy --noconfirm parted
+
 parted /dev/sda --script mklabel gpt \
     mkpart ESP fat32 1MiB 513MiB set 1 boot on \
     mkpart primary ext4 513MiB 100%
@@ -19,14 +33,14 @@ mkfs.ext4 /dev/sda2
 # 3. Montar
 # ==========================
 mount /dev/sda2 /mnt
-mkdir /mnt/boot
-mount /dev/sda1 /mnt/boot
+mkdir -p /mnt/boot/efi
+mount /dev/sda1 /mnt/boot/efi
 
 # ==========================
 # 4. Instalar base (solo kernel zen)
 # ==========================
-pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
+    vim nano networkmanager sudo parted
 
 # ==========================
 # 5. Fstab
@@ -48,11 +62,11 @@ echo "LANG=en_US.UTF-8" > /etc/locale.conf
 echo "KEYMAP=es" > /etc/vconsole.conf
 
 # Hostname y red
-echo "Arch-Nameless" > /etc/hostname
+echo "Arch-$username" > /etc/hostname
 cat <<EOT > /etc/hosts
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   Arch-Nameless.localdomain Arch-Nameless
+127.0.1.1   Arch-$username.localdomain Arch-$username
 EOT
 systemctl enable NetworkManager
 
@@ -74,12 +88,12 @@ editor  no
 EOT
 
 # Usuarios y contraseñas
-echo "root:root123" | chpasswd
-useradd -m -G wheel,seat -s /bin/bash Nameless
-echo "Nameless:user123" | chpasswd
+echo "root:$root_password" | chpasswd
+useradd -m -G wheel,seat -s /bin/bash $username
+echo "$username:$user_password" | chpasswd
 
 # Dar sudo al grupo wheel
-sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
 
 # Hyprland + utilidades mínimas y recomendadas
 pacman -S --needed --noconfirm \
@@ -94,16 +108,58 @@ systemctl enable seatd
 # Login manager (greetd + tuigreet)
 pacman -S --noconfirm greetd greetd-tuigreet
 systemctl enable greetd
+
+# Crear directorio de configuración de greetd
+mkdir -p /etc/greetd
+
 cat <<EOT > /etc/greetd/config.toml
+[terminal]
+vt = 1
+
 [default_session]
 command = "tuigreet --cmd /usr/bin/Hyprland"
-user = "Nameless"
+user = "greetd"
 EOT
+
+# Configurar permisos para greetd
+chown -R greetd:greetd /etc/greetd
+
+# Crear carpetas de usuario (Documentos, Descargas, etc.)
+# Esto se ejecutará cuando el usuario inicie sesión por primera vez
+pacman -S --noconfirm xdg-user-dirs
+echo "#!/bin/bash" > /etc/profile.d/xdg-dirs.sh
+echo "if [ -n \"\\\$XDG_SESSION_TYPE\" ]; then" >> /etc/profile.d/xdg-dirs.sh
+echo "    xdg-user-dirs-update" >> /etc/profile.d/xdg-dirs.sh
+echo "fi" >> /etc/profile.d/xdg-dirs.sh
+chmod +x /etc/profile.d/xdg-dirs.sh
 
 EOF
 
 # ==========================
-# 7. Reinicio
+# 7. Crear script de post-instalación para el usuario
 # ==========================
+arch-chroot /mnt /bin/bash <<EOF
+# Crear script que se ejecutará en el primer inicio
+mkdir -p /home/$username/.config/autostart
+cat <<EOT > /home/$username/.config/autostart/xdg-dirs.desktop
+[Desktop Entry]
+Type=Application
+Name=Create User Directories
+Exec=xdg-user-dirs-update
+OnlyShowIn=Hyprland;
+X-GNOME-Autostart-enabled=true
+EOT
+
+chown -R $username:$username /home/$username
+EOF
+
+# ==========================
+# 8. Reinicio
+# ==========================
+echo "=== INSTALACIÓN COMPLETADA ==="
+echo "Usuario: $username"
+echo "Hostname: Arch-$username"
+echo "El sistema se reiniciará en 5 segundos..."
+sleep 5
 umount -R /mnt
 reboot
