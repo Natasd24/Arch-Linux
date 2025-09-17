@@ -40,7 +40,7 @@ mount /dev/sda1 /mnt/boot/efi
 # 4. Instalar base (solo kernel zen)
 # ==========================
 pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo parted
+    vim nano networkmanager sudo parted neofetch
 
 # ==========================
 # 5. Fstab
@@ -159,6 +159,7 @@ EOF
 echo "=== INSTALACIÓN COMPLETADA ==="
 echo "Usuario: $username"
 echo "Hostname: Arch-$username"
+neofetch
 echo "El sistema se reiniciará en 5 segundos..."
 sleep 5
 umount -R /mnt
