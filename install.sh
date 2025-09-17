@@ -100,9 +100,6 @@ command = "tuigreet --cmd /usr/bin/Hyprland"
 user = "Nameless"
 EOT
 
-# Carpetas de usuario
-xdg-user-dirs-update
-
 EOF
 
 # ==========================
