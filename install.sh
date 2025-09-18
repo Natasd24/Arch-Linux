@@ -4,11 +4,11 @@ set -e
 # =======================================
 # 1. Configuración inicial
 # =======================================
-loadkeys es         # Teclado en español
+loadkeys es
 timedatectl set-ntp true
 
 # =======================================
-# 2. Particionado y formateo (disco entero)
+# 2. Particionado y formateo
 # =======================================
 parted /dev/sda --script mklabel gpt \
     mkpart ESP fat32 1MiB 513MiB set 1 boot on \
@@ -60,22 +60,7 @@ systemctl enable NetworkManager
 pacman -Sy --noconfirm grub efibootmgr
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
-
-EOF
-
-# =======================================
-# 5. Instalar entorno gráfico mínimo (Hyprland + Wayland)
-# =======================================
-arch-chroot /mnt /bin/bash <<EOF
-pacman -Sy --noconfirm \
-    hyprland xorg-xwayland xdg-desktop-portal-hyprland \
-    waybar alacritty wofi \
-    pipewire pipewire-pulse wireplumber \
-    polkit seatd \
-    ttf-dejavu ttf-jetbrains-mono
-
-systemctl enable seatd
 EOF
 
 umount -R /mnt
-echo "✅ Instalación terminada. Reinicia el sistema."
+echo "✅ Instalación base completada. Reinicia, quita el ISO y luego ejecuta el script post-reboot."
