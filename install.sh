@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# ==========================
+# =======================================
 # 1. Configuración inicial
-# ==========================
+# =======================================
 loadkeys es
 timedatectl set-ntp true
 
-# ==========================
-# 2. Particionar disco (BIOS/UEFI con GPT)
-# ==========================
+# =======================================
+# 2. Particionado y formateo
+# =======================================
 parted /dev/sda --script mklabel gpt \
     mkpart ESP fat32 1MiB 513MiB set 1 boot on \
     mkpart primary ext4 513MiB 100%
@@ -21,60 +21,47 @@ mount /dev/sda2 /mnt
 mkdir /mnt/boot
 mount /dev/sda1 /mnt/boot
 
-# ==========================
-# 3. Instalar sistema base
-# ==========================
-pacstrap /mnt base base-devel linux-zen linux-zen-headers linux-firmware \
-    networkmanager vim git sudo
+# =======================================
+# 3. Instalación base (con kernel Zen)
+# =======================================
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware \
+    vim sudo networkmanager git
 
 genfstab -U /mnt >> /mnt/etc/fstab
 
-# ==========================
-# 4. Configuración dentro de chroot
-# ==========================
+# =======================================
+# 4. Configuración del sistema
+# =======================================
 arch-chroot /mnt /bin/bash <<EOF
-set -e
-
-# Zona horaria
-ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 hwclock --systohc
 
-# Locales
 echo "es_MX.UTF-8 UTF-8" >> /etc/locale.gen
-echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG=es_MX.UTF-8" > /etc/locale.conf
+echo "KEYMAP=es" > /etc/vconsole.conf
 
-# Hostname y red
-echo "Arch-Nameless" > /etc/hostname
-cat <<NET > /etc/hosts
+echo "arch-zen" > /etc/hostname
+cat <<EOT > /etc/hosts
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   Arch-Nameless.localdomain Arch-Nameless
-NET
+127.0.1.1   arch-zen.localdomain arch-zen
+EOT
 
-# Usuarios
-echo "root:root123" | chpasswd
-useradd -m -G wheel -s /bin/bash Nameless
-echo "Nameless:user123" | chpasswd
-echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+# usuario
+useradd -m -G wheel -s /bin/bash arch
+echo "arch:arch" | chpasswd
+echo "root:root" | chpasswd
+echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
-# Bootloader systemd-boot
-bootctl --path=/boot install
-cat <<BOOT > /boot/loader/entries/arch.conf
-title   Arch Linux Zen
-linux   /vmlinuz-linux-zen
-initrd  /initramfs-linux-zen.img
-options root=/dev/sda2 rw
-BOOT
-
-# Activar servicios
+# red
 systemctl enable NetworkManager
 
+# bootloader (GRUB)
+pacman -Sy --noconfirm grub efibootmgr
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
-# ==========================
-# 5. Desmontar y reiniciar
-# ==========================
 umount -R /mnt
-echo "✅ Instalación base completada. Reinicia el sistema."
+echo "✅ Instalación base con Linux Zen completada. Reinicia, quita el ISO y luego ejecuta el script post-reboot."
