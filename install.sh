@@ -8,7 +8,7 @@ loadkeys es
 timedatectl set-ntp true
 
 # ==========================
-# 2. Particionar disco (UEFI con GPT)
+# 2. Particionar disco (BIOS/UEFI con GPT)
 # ==========================
 parted /dev/sda --script mklabel gpt \
     mkpart ESP fat32 1MiB 513MiB set 1 boot on \
@@ -18,8 +18,8 @@ mkfs.fat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
 
 mount /dev/sda2 /mnt
-mkdir -p /mnt/boot/efi
-mount /dev/sda1 /mnt/boot/efi
+mkdir /mnt/boot
+mount /dev/sda1 /mnt/boot
 
 # ==========================
 # 3. Instalar sistema base
@@ -60,52 +60,21 @@ echo "Nameless:user123" | chpasswd
 echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
 
 # Bootloader systemd-boot
-bootctl --path=/boot/efi install
-cat <<BOOT > /boot/efi/loader/entries/arch.conf
+bootctl --path=/boot install
+cat <<BOOT > /boot/loader/entries/arch.conf
 title   Arch Linux Zen
 linux   /vmlinuz-linux-zen
 initrd  /initramfs-linux-zen.img
 options root=/dev/sda2 rw
 BOOT
 
-cat <<CONF > /boot/efi/loader/loader.conf
-default arch.conf
-timeout 3
-editor  no
-CONF
-
 # Activar servicios
 systemctl enable NetworkManager
-
-# ==========================
-# 5. Instalar entorno Hyprland + utilidades
-# ==========================
-pacman -S --noconfirm \
-    hyprland kitty wofi eww wl-clipboard xdg-user-dirs \
-    seatd polkit greetd greetd-tuigreet pipewire wireplumber pipewire-audio \
-    noto-fonts swww
-
-# greetd configuración mínima
-mkdir -p /etc/greetd
-cat <<GREET >/etc/greetd/config.toml
-[terminal]
-vt = 1
-
-[default_session]
-command = "tuigreet --cmd Hyprland"
-user = "greeter"
-GREET
-
-systemctl enable greetd
-systemctl enable seatd
-
-# Carpetas de usuario (Documentos, Descargas, etc.)
-runuser -l Nameless -c "xdg-user-dirs-update"
 
 EOF
 
 # ==========================
-# 6. Desmontar y reiniciar
+# 5. Desmontar y reiniciar
 # ==========================
 umount -R /mnt
-echo "✅ Instalación completada. Retira el ISO y reinicia el sistema."
+echo "✅ Instalación base completada. Reinicia el sistema."
