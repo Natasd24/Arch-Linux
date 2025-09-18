@@ -31,7 +31,7 @@ mount /dev/sda1 /mnt/boot
 # 5. Instalar base (Zen kernel)
 # ==========================
 pacstrap -K /mnt base linux-zen linux-zen-headers linux-firmware \
-    vim nano networkmanager sudo
+    git base-devel vim nano networkmanager sudo
 
 # ==========================
 # 6. Fstab
@@ -41,10 +41,12 @@ genfstab -U /mnt >> /mnt/etc/fstab
 # ==========================
 # 7. Configuración en chroot
 # ==========================
-arch-chroot /mnt /bin/bash <<EOF
+arch-chroot /mnt /bin/bash <<'EOF'
 set -euo pipefail
 
-# Zona horaria y locales
+# --------------------------
+# Configuración del sistema
+# --------------------------
 ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime
 hwclock --systohc
 echo "es_MX.UTF-8 UTF-8" >> /etc/locale.gen
@@ -53,7 +55,6 @@ locale-gen
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
 echo "KEYMAP=es" > /etc/vconsole.conf
 
-# Hostname y red
 echo "arch-vm" > /etc/hostname
 cat <<HOSTS > /etc/hosts
 127.0.0.1   localhost
@@ -62,7 +63,9 @@ cat <<HOSTS > /etc/hosts
 HOSTS
 systemctl enable NetworkManager
 
-# Bootloader (systemd-boot con Zen)
+# --------------------------
+# Bootloader (systemd-boot)
+# --------------------------
 bootctl install
 UUID=\$(blkid -s UUID -o value /dev/sda2)
 
@@ -79,20 +82,26 @@ timeout 3
 editor  no
 LOADER
 
+# --------------------------
 # Usuarios
+# --------------------------
 echo "root:root123" | chpasswd
 useradd -m -G wheel -s /bin/bash vmuser
 echo "vmuser:user123" | chpasswd
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
+# --------------------------
 # Hyprland mínimo
+# --------------------------
 pacman -S --needed --noconfirm \
-    hyprland seatd polkit kitty wofi eww \
+    hyprland seatd polkit kitty wofi \
     wayland xdg-utils wl-clipboard
 
 systemctl enable seatd
 
+# --------------------------
 # Login manager (greetd + tuigreet)
+# --------------------------
 pacman -S --noconfirm greetd greetd-tuigreet
 systemctl enable greetd
 cat <<GREETD > /etc/greetd/config.toml
@@ -101,8 +110,23 @@ command = "tuigreet --cmd Hyprland"
 user = "vmuser"
 GREETD
 
+# --------------------------
 # Audio y fuentes
+# --------------------------
 pacman -S --noconfirm pipewire wireplumber pipewire-audio noto-fonts
+
+# --------------------------
+# Instalar yay (AUR helper) y eww
+# --------------------------
+sudo -u vmuser bash <<'AUR'
+set -euo pipefail
+cd /home/vmuser
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si --noconfirm
+yay -S --noconfirm eww
+AUR
+
 EOF
 
 # ==========================
