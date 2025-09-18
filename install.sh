@@ -22,9 +22,10 @@ mkdir /mnt/boot
 mount /dev/sda1 /mnt/boot
 
 # =======================================
-# 3. Instalación base
+# 3. Instalación base (con kernel Zen)
 # =======================================
-pacstrap /mnt base linux linux-firmware vim sudo networkmanager git
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware \
+    vim sudo networkmanager git
 
 genfstab -U /mnt >> /mnt/etc/fstab
 
@@ -40,11 +41,11 @@ locale-gen
 echo "LANG=es_MX.UTF-8" > /etc/locale.conf
 echo "KEYMAP=es" > /etc/vconsole.conf
 
-echo "archlinux" > /etc/hostname
+echo "arch-zen" > /etc/hostname
 cat <<EOT > /etc/hosts
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   archlinux.localdomain archlinux
+127.0.1.1   arch-zen.localdomain arch-zen
 EOT
 
 # usuario
@@ -56,11 +57,11 @@ echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 # red
 systemctl enable NetworkManager
 
-# bootloader
+# bootloader (GRUB)
 pacman -Sy --noconfirm grub efibootmgr
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
 umount -R /mnt
-echo "✅ Instalación base completada. Reinicia, quita el ISO y luego ejecuta el script post-reboot."
+echo "✅ Instalación base con Linux Zen completada. Reinicia, quita el ISO y luego ejecuta el script post-reboot."
