@@ -118,14 +118,12 @@ pacman -S --noconfirm pipewire wireplumber pipewire-audio noto-fonts
 # --------------------------
 # Instalar yay (AUR helper) y eww
 # --------------------------
-sudo -u vmuser bash <<'AUR'
-set -euo pipefail
 cd /home/vmuser
 git clone https://aur.archlinux.org/yay.git
+chown -R vmuser:vmuser yay
 cd yay
-makepkg -si --noconfirm
-yay -S --noconfirm eww
-AUR
+sudo -u vmuser makepkg -si --noconfirm
+sudo -u vmuser yay -S --noconfirm eww
 
 EOF
 
@@ -133,4 +131,4 @@ EOF
 # 8. Finalizar
 # ==========================
 umount -R /mnt
-echo "Instalación completada. Reinicia la VM."
+echo "✅ Instalación completada. Reinicia la VM."
