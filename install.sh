@@ -8,7 +8,7 @@ loadkeys es
 timedatectl set-ntp true
 
 # ==========================
-# 2. Particionar disco (BIOS/UEFI con GPT)
+# 2. Particionar disco (UEFI con GPT)
 # ==========================
 parted /dev/sda --script mklabel gpt \
     mkpart ESP fat32 1MiB 513MiB set 1 boot on \
@@ -18,8 +18,8 @@ mkfs.fat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
 
 mount /dev/sda2 /mnt
-mkdir /mnt/boot
-mount /dev/sda1 /mnt/boot
+mkdir -p /mnt/boot/efi
+mount /dev/sda1 /mnt/boot/efi
 
 # ==========================
 # 3. Instalar sistema base
@@ -60,13 +60,19 @@ echo "Nameless:user123" | chpasswd
 echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
 
 # Bootloader systemd-boot
-bootctl --path=/boot install
-cat <<BOOT > /boot/loader/entries/arch.conf
+bootctl --path=/boot/efi install
+cat <<BOOT > /boot/efi/loader/entries/arch.conf
 title   Arch Linux Zen
 linux   /vmlinuz-linux-zen
 initrd  /initramfs-linux-zen.img
 options root=/dev/sda2 rw
 BOOT
+
+cat <<CONF > /boot/efi/loader/loader.conf
+default arch.conf
+timeout 3
+editor  no
+CONF
 
 # Activar servicios
 systemctl enable NetworkManager
@@ -91,6 +97,7 @@ user = "greeter"
 GREET
 
 systemctl enable greetd
+systemctl enable seatd
 
 # Carpetas de usuario (Documentos, Descargas, etc.)
 runuser -l Nameless -c "xdg-user-dirs-update"
