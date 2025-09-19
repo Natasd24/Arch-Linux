@@ -188,7 +188,7 @@ configure_system() {
     # Obtener UUID de la partición root para el bootloader
     ROOT_UUID=$(blkid -s UUID -o value $ROOT_PARTITION)
     
-    # Script para chroot - EVITANDO systemctl
+    # Script para chroot - EVITANDO systemctl y makepkg como root
     cat > /mnt/configure.sh << EOF
 #!/bin/bash
 
@@ -277,12 +277,6 @@ pacman -S --noconfirm \\
     noto-fonts \\
     noto-fonts-cjk \\
     noto-fonts-emoji
-
-# Instalar Eww desde AUR (usando makepkg directamente)
-cd /tmp
-git clone https://aur.archlinux.org/eww.git
-cd eww
-makepkg -si --noconfirm
 
 # Configurar Zsh con Powerlevel10k
 sudo -u \$USERNAME sh -c "\$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -398,23 +392,54 @@ EOF
     rm /mnt/configure.sh
 }
 
-# Configurar servicios después del chroot
-configure_services() {
-    print_status "Configurando servicios fuera de chroot"
+# Instalar Eww como usuario normal (después de chroot)
+install_eww() {
+    print_status "Instalando Eww desde AUR..."
     
-    # Montar sistemas especiales para poder usar systemctl
+    # Montar sistemas para poder usar sudo dentro del chroot
     mount --bind /mnt /mnt
     mount -t proc /proc /mnt/proc
     mount -t sysfs /sys /mnt/sys
     mount -t devtmpfs /dev /mnt/dev
     mount -t devpts /dev/pts /mnt/dev/pts
     
-    # Ahora podemos usar systemctl correctamente
+    # Instalar Eww como usuario normal
+    arch-chroot /mnt /bin/bash -c "
+        cd /tmp
+        sudo -u $USERNAME git clone https://aur.archlinux.org/eww.git
+        cd eww
+        sudo -u $USERNAME makepkg -si --noconfirm
+        rm -rf /tmp/eww
+    "
+    
+    print_status "Eww instalado correctamente"
+}
+
+# Instalar yay como usuario normal
+install_yay() {
+    print_status "Instalando yay desde AUR..."
+    
+    arch-chroot /mnt /bin/bash -c "
+        cd /tmp
+        sudo -u $USERNAME git clone https://aur.archlinux.org/yay.git
+        cd yay
+        sudo -u $USERNAME makepkg -si --noconfirm
+        rm -rf /tmp/yay
+    "
+    
+    print_status "Yay instalado correctamente"
+}
+
+# Configurar servicios después del chroot
+configure_services() {
+    print_status "Configurando servicios..."
+    
+    # Instalar NetworkManager
+    arch-chroot /mnt pacman -S --noconfirm networkmanager
+    
+    # Habilitar servicios
     arch-chroot /mnt systemctl enable NetworkManager
     arch-chroot /mnt systemctl enable sshd
-    
-    # Instalar NetworkManager (fuera del chroot problemático)
-    arch-chroot /mnt pacman -S --noconfirm networkmanager
     
     print_status "Servicios configurados correctamente"
 }
@@ -434,15 +459,13 @@ show_swap_instructions() {
 # Instrucciones post-instalación
 show_post_install_instructions() {
     print_info "INSTRUCCIONES POST-INSTALACIÓN:"
-    print_info "1. Reinicia el sistema"
+    print_info "1. Reinicia el sistema: reboot"
     print_info "2. Inicia sesión con tu usuario: $USERNAME"
     print_info "3. Para iniciar Hyprland: ejecuta 'Hyprland' en la terminal"
-    print_info "4. Instala yay manualmente si es necesario:"
-    print_info "   cd /tmp && git clone https://aur.archlinux.org/yay.git"
-    print_info "   cd yay && makepkg -si"
-    print_info "5. Configura tu conexión de red:"
+    print_info "4. Configura tu conexión de red:"
     print_info "   sudo systemctl start NetworkManager"
     print_info "   sudo systemctl enable NetworkManager"
+    print_info "5. Paquetes AUR instalados: eww, yay"
     echo ""
 }
 
@@ -482,6 +505,8 @@ main() {
     install_base
     generate_fstab
     configure_system
+    install_eww
+    install_yay
     configure_services
     create_swapfile
     finish_installation
