@@ -36,7 +36,16 @@ echo "🔹 Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab || { echo "❌ Error: genfstab falló"; exit 1; }
 
 # =======================================
-# 4. Configuración del sistema
+# 4. Preparación para chroot (bind mounts)
+# =======================================
+echo "🔹 Preparando directorios para chroot..."
+mount --types proc /proc /mnt/proc
+mount --rbind /sys /mnt/sys
+mount --rbind /dev /mnt/dev
+mount --rbind /run /mnt/run
+
+# =======================================
+# 5. Configuración del sistema dentro del chroot
 # =======================================
 echo "🔹 Configurando sistema dentro de chroot..."
 arch-chroot /mnt /bin/bash <<'EOF'
@@ -66,21 +75,20 @@ echo "arch:arch" | chpasswd
 echo "root:root" | chpasswd
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
-echo "🔹 Habilitando NetworkManager..."
-systemctl enable NetworkManager
-
 echo "🔹 Instalando y configurando GRUB..."
 pacman -Sy --noconfirm grub efibootmgr || { echo "❌ Error: instalación de GRUB falló"; exit 1; }
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB || { echo "❌ Error: grub-install falló"; exit 1; }
 grub-mkconfig -o /boot/grub/grub.cfg || { echo "❌ Error: grub-mkconfig falló"; exit 1; }
 
+# 🔹 Advertencia sobre systemctl dentro del chroot
+echo "⚠️ systemctl habilitar servicios (como NetworkManager) se debe hacer después del primer arranque"
 EOF
 
 # =======================================
-# 5. Finalización
+# 6. Finalización
 # =======================================
 echo "🔹 Desmontando particiones..."
 umount -R /mnt || { echo "❌ Error: No se pudo desmontar /mnt"; exit 1; }
 
 echo "✅ Instalación base con Linux Zen completada."
-echo "🔹 Reinicia la máquina, quita el ISO y luego ejecuta el script post-reboot si lo tienes."
+echo "🔹 Reinicia la máquina, quita el ISO, y habilita servicios como NetworkManager después del primer arranque."
