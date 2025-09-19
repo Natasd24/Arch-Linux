@@ -10,7 +10,9 @@ timedatectl set-ntp true
 # 2. Particionado y formateo
 # =======================================
 # Limpiar disco y crear tabla de particiones GPT
-parted /dev/sda --script rm 1 mklabel gpt
+# Limpiar el disco antes de crear una nueva tabla de particiones
+dd if=/dev/zero of=/dev/sda bs=512 count=1 conv=notrunc
+parted /dev/sda --script mklabel gpt
 
 # Crear partición de booteo (EFI) de 512MiB
 parted /dev/sda --script mkpart primary fat32 1MiB 513MiB
