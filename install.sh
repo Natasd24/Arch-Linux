@@ -1,67 +1,55 @@
-#!/bin/bash
 set -e
 
 # =======================================
 # 1. Configuración inicial
 # =======================================
-echo "🔹 Configurando teclado y hora..."
-loadkeys es || { echo "❌ Error: No se pudo cargar el teclado"; exit 1; }
-timedatectl set-ntp true || { echo "❌ Error: No se pudo activar NTP"; exit 1; }
+loadkeys es
+timedatectl set-ntp true
 
 # =======================================
 # 2. Particionado y formateo
 # =======================================
-echo "🔹 Particionando disco /dev/sda..."
-parted /dev/sda --script mklabel gpt \
-    mkpart ESP fat32 1MiB 513MiB set 1 boot on \
-    mkpart primary ext4 513MiB 100% || { echo "❌ Error: Particionado fallido"; exit 1; }
+# Limpiar disco y crear tabla de particiones GPT
+parted /dev/sda --script rm 1 mklabel gpt
 
-echo "🔹 Formateando particiones..."
-mkfs.fat -F32 /dev/sda1 || { echo "❌ Error: Formateo de /dev/sda1 falló"; exit 1; }
-mkfs.ext4 /dev/sda2 || { echo "❌ Error: Formateo de /dev/sda2 falló"; exit 1; }
+# Crear partición de booteo (EFI) de 512MiB
+parted /dev/sda --script mkpart primary fat32 1MiB 513MiB
+parted /dev/sda --script set 1 esp on
+# Crear partición principal (root)
+parted /dev/sda --script mkpart primary ext4 513MiB 100%
 
-echo "🔹 Montando particiones..."
-mount /dev/sda2 /mnt || { echo "❌ Error: No se pudo montar /dev/sda2"; exit 1; }
-mkdir -p /mnt/boot
-mount /dev/sda1 /mnt/boot || { echo "❌ Error: No se pudo montar /dev/sda1"; exit 1; }
+# Formatear particiones
+mkfs.fat -F32 /dev/sda1
+mkfs.ext4 /dev/sda2
+
+# Montar particiones
+mount /dev/sda2 /mnt
+mkdir -p /mnt/boot/efi
+mount /dev/sda1 /mnt/boot/efi
 
 # =======================================
 # 3. Instalación base (con kernel Zen)
 # =======================================
-echo "🔹 Instalando sistema base y kernel Zen..."
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware \
-    vim sudo networkmanager git || { echo "❌ Error: pacstrap falló"; exit 1; }
+    vim sudo networkmanager git grub efibootmgr
 
-echo "🔹 Generando fstab..."
-genfstab -U /mnt >> /mnt/etc/fstab || { echo "❌ Error: genfstab falló"; exit 1; }
-
-# =======================================
-# 4. Preparación para chroot (bind mounts)
-# =======================================
-echo "🔹 Preparando directorios para chroot..."
-mount --types proc /proc /mnt/proc
-mount --rbind /sys /mnt/sys
-mount --rbind /dev /mnt/dev
-mount --rbind /run /mnt/run
+genfstab -U /mnt >> /mnt/etc/fstab
 
 # =======================================
-# 5. Configuración del sistema dentro del chroot
+# 4. Configuración del sistema (dentro del chroot)
 # =======================================
-echo "🔹 Configurando sistema dentro de chroot..."
-arch-chroot /mnt /bin/bash <<'EOF'
-set -e
-
-echo "🔹 Configurando zona horaria y reloj..."
-ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+arch-chroot /mnt /bin/bash <<EOF
+# Zona horaria (ejemplo para México)
+ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime
 hwclock --systohc
 
-echo "🔹 Configurando locales..."
-echo "es_MX.UTF-8 UTF-8" >> /etc/locale.gen
+# Localización
+sed -i 's/#es_MX.UTF-8 UTF-8/es_MX.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
 echo "LANG=es_MX.UTF-8" > /etc/locale.conf
 echo "KEYMAP=es" > /etc/vconsole.conf
 
-echo "🔹 Configurando hostname y hosts..."
+# Hostname
 echo "arch-zen" > /etc/hostname
 cat <<EOT > /etc/hosts
 127.0.0.1   localhost
@@ -69,26 +57,21 @@ cat <<EOT > /etc/hosts
 127.0.1.1   arch-zen.localdomain arch-zen
 EOT
 
-echo "🔹 Creando usuario y configurando sudo..."
+# Contraseña de root y creación de usuario
+echo "root:password_root" | chpasswd
 useradd -m -G wheel -s /bin/bash arch
-echo "arch:arch" | chpasswd
-echo "root:root" | chpasswd
-echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
+echo "arch:password_user" | chpasswd
+# Descomentar la línea para sudoers
+sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-echo "🔹 Instalando y configurando GRUB..."
-pacman -Sy --noconfirm grub efibootmgr || { echo "❌ Error: instalación de GRUB falló"; exit 1; }
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB || { echo "❌ Error: grub-install falló"; exit 1; }
-grub-mkconfig -o /boot/grub/grub.cfg || { echo "❌ Error: grub-mkconfig falló"; exit 1; }
+# Red
+systemctl enable NetworkManager
 
-# 🔹 Advertencia sobre systemctl dentro del chroot
-echo "⚠️ systemctl habilitar servicios (como NetworkManager) se debe hacer después del primer arranque"
+# Bootloader (GRUB)
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+
 EOF
 
-# =======================================
-# 6. Finalización
-# =======================================
-echo "🔹 Desmontando particiones..."
-umount -R /mnt || { echo "❌ Error: No se pudo desmontar /mnt"; exit 1; }
-
-echo "✅ Instalación base con Linux Zen completada."
-echo "🔹 Reinicia la máquina, quita el ISO, y habilita servicios como NetworkManager después del primer arranque."
+umount -R /mnt
+echo "✅ Instalación base con Linux Zen completada. Reinicia, quita el ISO y luego ejecuta el script post-reboot."
