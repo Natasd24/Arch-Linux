@@ -18,17 +18,14 @@ detect_disk() {
         DISK="/dev/nvme0n1"
         BOOT_PARTITION="${DISK}p1"
         ROOT_PARTITION="${DISK}p2"
-        SWAP_PARTITION="${DISK}p3"
     elif [ -b /dev/sda ]; then
         DISK="/dev/sda"
         BOOT_PARTITION="${DISK}1"
         ROOT_PARTITION="${DISK}2"
-        SWAP_PARTITION="${DISK}3"
     elif [ -b /dev/vda ]; then
         DISK="/dev/vda"
         BOOT_PARTITION="${DISK}1"
         ROOT_PARTITION="${DISK}2"
-        SWAP_PARTITION="${DISK}3"
     else
         print_error "No se pudo detectar el disco. Por favor, configura manualmente."
     fi
@@ -46,7 +43,6 @@ KEYMAP="la-latin1"  # Cambiar según tu teclado
 DISK=""
 BOOT_PARTITION=""
 ROOT_PARTITION=""
-SWAP_PARTITION=""
 
 # Función para imprimir mensajes
 print_status() {
@@ -88,9 +84,9 @@ show_disk_info() {
     echo ""
     print_warning "Se utilizará el disco: $DISK"
     print_warning "Particiones:"
-    print_warning "  - Boot: $BOOT_PARTITION"
-    print_warning "  - Root: $ROOT_PARTITION"
-    print_warning "  - Swap: $SWAP_PARTITION"
+    print_warning "  - Boot: $BOOT_PARTITION (550MB)"
+    print_warning "  - Root: $ROOT_PARTITION (Resto del disco)"
+    print_warning "  - Swap: Archivo swapfile (se creará después)"
     echo ""
     
     read -p "¿Continuar con esta configuración? (y/N): " confirm
@@ -110,16 +106,12 @@ partition_disk() {
     # Usar parted para particionamiento más compatible
     parted -s $DISK mklabel gpt
     
-    # Crear particiones
-    # EFI (550M)
+    # Crear partición EFI (550MB)
     parted -s $DISK mkpart primary fat32 1MiB 551MiB
     parted -s $DISK set 1 esp on
     
-    # Root (40G)
-    parted -s $DISK mkpart primary ext4 551MiB 40.5GiB
-    
-    # Swap (8G)
-    parted -s $DISK mkpart primary linux-swap 40.5GiB 48.5GiB
+    # Crear partición Root con el resto del espacio
+    parted -s $DISK mkpart primary ext4 551MiB 100%
     
     # Sincronizar
     partprobe $DISK
@@ -137,12 +129,6 @@ format_partitions() {
     
     # Formatear root
     mkfs.ext4 -F $ROOT_PARTITION
-    
-    # Formatear e activar swap (si existe)
-    if [[ -n "$SWAP_PARTITION" ]]; then
-        mkswap $SWAP_PARTITION
-        swapon $SWAP_PARTITION
-    fi
     
     print_status "Particiones formateadas"
 }
@@ -173,6 +159,26 @@ install_base() {
 generate_fstab() {
     print_status "Generando fstab"
     genfstab -U /mnt >> /mnt/etc/fstab
+}
+
+# Crear swapfile (opcional al final)
+create_swapfile() {
+    print_status "¿Deseas crear un archivo de swap? (y/N)"
+    read -r response
+    
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        print_status "Creando archivo de swap de 8GB..."
+        
+        # Crear archivo de swap
+        arch-chroot /mnt dd if=/dev/zero of=/swapfile bs=1M count=8192 status=progress
+        arch-chroot /mnt chmod 600 /swapfile
+        arch-chroot /mnt mkswap /swapfile
+        
+        # Agregar a fstab
+        echo '/swapfile none swap defaults 0 0' >> /mnt/etc/fstab
+        
+        print_status "Swapfile creado. Para activarlo: swapon /swapfile"
+    fi
 }
 
 # Configurar sistema
@@ -284,7 +290,7 @@ pacman -S --noconfirm \\
     noto-fonts-cjk \\
     noto-fonts-emoji
 
-# Instalar Eww desde AUR (manualmente por posibles problemas de dependencias)
+# Instalar Eww desde AUR
 cd /tmp
 sudo -u \$USERNAME git clone https://aur.archlinux.org/eww.git
 cd eww
@@ -404,6 +410,18 @@ EOF
     rm /mnt/configure.sh
 }
 
+# Instrucciones para swapfile manual
+show_swap_instructions() {
+    print_info "INSTRUCCIONES PARA SWAPFILE MANUAL:"
+    print_info "Para crear un swapfile después de la instalación:"
+    print_info "1. Crear archivo: sudo dd if=/dev/zero of=/swapfile bs=1M count=8192"
+    print_info "2. Dar permisos: sudo chmod 600 /swapfile"
+    print_info "3. Formatear como swap: sudo mkswap /swapfile"
+    print_info "4. Activar: sudo swapon /swapfile"
+    print_info "5. Permanente: agregar '/swapfile none swap defaults 0 0' a /etc/fstab"
+    echo ""
+}
+
 # Finalizar instalación
 finish_installation() {
     print_status "Finalizando instalación"
@@ -412,10 +430,12 @@ finish_installation() {
     umount -R /mnt
     
     print_status "¡Instalación completada!"
+    echo ""
+    show_swap_instructions
     print_warning "Reinicia el sistema y retira el medio de instalación"
     print_info "Usuario: $USERNAME"
     print_info "Contraseña: La que estableciste durante la instalación"
-    print_info "Entorno: Hyprland (inicia con 'starthypr' o desde el login manager)"
+    print_info "Entorno: Hyprland (inicia con 'Hyprland' desde la terminal)"
     print_info "Terminal: Kitty"
     print_info "Shell: Zsh con Powerlevel10k"
 }
@@ -434,6 +454,7 @@ main() {
     install_base
     generate_fstab
     configure_system
+    create_swapfile
     finish_installation
     
     print_status "Instalación completada exitosamente!"
