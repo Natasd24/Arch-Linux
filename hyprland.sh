@@ -181,14 +181,14 @@ create_swapfile() {
     fi
 }
 
-# Configurar sistema
+# Configurar sistema (sin systemctl en chroot)
 configure_system() {
     print_status "Configurando sistema"
     
     # Obtener UUID de la partición root para el bootloader
     ROOT_UUID=$(blkid -s UUID -o value $ROOT_PARTITION)
     
-    # Script para chroot
+    # Script para chroot - EVITANDO systemctl
     cat > /mnt/configure.sh << EOF
 #!/bin/bash
 
@@ -240,9 +240,8 @@ passwd \$USERNAME
 # Configurar sudo
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
-# Instalar paquetes esenciales
+# Instalar paquetes esenciales (sin NetworkManager por ahora)
 pacman -S --noconfirm \\
-    networkmanager \\
     openssh \\
     git \\
     python \\
@@ -250,17 +249,6 @@ pacman -S --noconfirm \\
     go \\
     nodejs \\
     npm
-
-# Habilitar servicios
-systemctl enable NetworkManager
-systemctl enable sshd
-
-# Instalar yay (AUR helper)
-cd /tmp
-git clone https://aur.archlinux.org/yay.git
-chown -R \$USERNAME:\$USERNAME yay
-cd yay
-sudo -u \$USERNAME makepkg -si --noconfirm
 
 # Instalar Hyprland y componentes
 pacman -S --noconfirm \\
@@ -290,11 +278,11 @@ pacman -S --noconfirm \\
     noto-fonts-cjk \\
     noto-fonts-emoji
 
-# Instalar Eww desde AUR
+# Instalar Eww desde AUR (usando makepkg directamente)
 cd /tmp
-sudo -u \$USERNAME git clone https://aur.archlinux.org/eww.git
+git clone https://aur.archlinux.org/eww.git
 cd eww
-sudo -u \$USERNAME makepkg -si --noconfirm
+makepkg -si --noconfirm
 
 # Configurar Zsh con Powerlevel10k
 sudo -u \$USERNAME sh -c "\$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -410,6 +398,27 @@ EOF
     rm /mnt/configure.sh
 }
 
+# Configurar servicios después del chroot
+configure_services() {
+    print_status "Configurando servicios fuera de chroot"
+    
+    # Montar sistemas especiales para poder usar systemctl
+    mount --bind /mnt /mnt
+    mount -t proc /proc /mnt/proc
+    mount -t sysfs /sys /mnt/sys
+    mount -t devtmpfs /dev /mnt/dev
+    mount -t devpts /dev/pts /mnt/dev/pts
+    
+    # Ahora podemos usar systemctl correctamente
+    arch-chroot /mnt systemctl enable NetworkManager
+    arch-chroot /mnt systemctl enable sshd
+    
+    # Instalar NetworkManager (fuera del chroot problemático)
+    arch-chroot /mnt pacman -S --noconfirm networkmanager
+    
+    print_status "Servicios configurados correctamente"
+}
+
 # Instrucciones para swapfile manual
 show_swap_instructions() {
     print_info "INSTRUCCIONES PARA SWAPFILE MANUAL:"
@@ -422,9 +431,30 @@ show_swap_instructions() {
     echo ""
 }
 
+# Instrucciones post-instalación
+show_post_install_instructions() {
+    print_info "INSTRUCCIONES POST-INSTALACIÓN:"
+    print_info "1. Reinicia el sistema"
+    print_info "2. Inicia sesión con tu usuario: $USERNAME"
+    print_info "3. Para iniciar Hyprland: ejecuta 'Hyprland' en la terminal"
+    print_info "4. Instala yay manualmente si es necesario:"
+    print_info "   cd /tmp && git clone https://aur.archlinux.org/yay.git"
+    print_info "   cd yay && makepkg -si"
+    print_info "5. Configura tu conexión de red:"
+    print_info "   sudo systemctl start NetworkManager"
+    print_info "   sudo systemctl enable NetworkManager"
+    echo ""
+}
+
 # Finalizar instalación
 finish_installation() {
     print_status "Finalizando instalación"
+    
+    # Desmontar sistemas especiales
+    umount /mnt/dev/pts 2>/dev/null || true
+    umount /mnt/dev 2>/dev/null || true
+    umount /mnt/sys 2>/dev/null || true
+    umount /mnt/proc 2>/dev/null || true
     
     # Desmontar particiones
     umount -R /mnt
@@ -432,12 +462,10 @@ finish_installation() {
     print_status "¡Instalación completada!"
     echo ""
     show_swap_instructions
+    show_post_install_instructions
     print_warning "Reinicia el sistema y retira el medio de instalación"
     print_info "Usuario: $USERNAME"
     print_info "Contraseña: La que estableciste durante la instalación"
-    print_info "Entorno: Hyprland (inicia con 'Hyprland' desde la terminal)"
-    print_info "Terminal: Kitty"
-    print_info "Shell: Zsh con Powerlevel10k"
 }
 
 # Función principal
@@ -454,6 +482,7 @@ main() {
     install_base
     generate_fstab
     configure_system
+    configure_services
     create_swapfile
     finish_installation
     
