@@ -1,3 +1,3 @@
 # Desktop Arch-Linux-Hyprland!
 
-Configuracion Minima de hyperland
+Script de instalacion de Arch-Linux con script post-instalacion que agrega hyprland
