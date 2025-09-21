@@ -1,47 +1,34 @@
 #!/bin/bash
-# Post-instalación Arch Linux con Hyprland + utilidades modernas (México, con yay y AUR)
+# Post-instalación mínima Arch Linux con Hyprland
 # Ejecutar como usuario normal con sudo habilitado
 
 set -e
 
 USER=$(whoami)
-WALLPAPER_URL="https://raw.githubusercontent.com/hyprwm/Hyprland/main/assets/wall.png"
+WALLPAPER_URL="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.explicit.bing.net%2Fth%2Fid%2FOIP.LEK5piDAo2ioJ9O6dYFelAHaEG%3Fpid%3DApi&f=1&ipt=843daac58bda1bb027c83c30b9f13e45ebd76b57503fed241215a7a7793d6066&ipo=images"
 WALLPAPER_PATH="$HOME/.config/hypr/wallpaper.png"
 
 echo ">>> Actualizando sistema..."
 sudo pacman -Syu --noconfirm
 
-echo ">>> Instalando paquetes base necesarios..."
+echo ">>> Instalando lo esencial para Hyprland..."
 sudo pacman -S --noconfirm \
-  git base-devel wget unzip \
   hyprland \
   xdg-desktop-portal-hyprland \
   waybar \
   wofi \
   kitty \
-  zsh \
-  bat lsd \
-  neovim \
   pipewire pipewire-pulse wireplumber \
-  grim slurp wl-clipboard \
   ttf-jetbrains-mono-nerd \
   polkit-gnome \
-  network-manager-applet
+  network-manager-applet \
+  xdg-user-dirs
 
-echo ">>> Instalando yay (AUR helper)..."
-if ! command -v yay &> /dev/null; then
-  git clone https://aur.archlinux.org/yay.git /tmp/yay
-  cd /tmp/yay
-  makepkg -si --noconfirm
-  cd -
-fi
+echo ">>> Configurando sudo (wheel)..."
+echo "%wheel ALL=(ALL) ALL" | sudo tee -a /etc/sudoers
 
-echo ">>> Instalando paquetes desde AUR..."
-yay -S --noconfirm \
-  eww-git \
-  zsh-autosuggestions \
-  zsh-syntax-highlighting \
-  zoxide
+echo ">>> Creando directorios de usuario..."
+xdg-user-dirs-update
 
 echo ">>> Configurando wallpaper..."
 mkdir -p "$(dirname $WALLPAPER_PATH)"
@@ -53,7 +40,6 @@ cat > ~/.config/hypr/hyprland.conf <<EOL
 monitor=,preferred,auto,1
 
 exec-once = waybar &
-exec-once = eww daemon &
 exec-once = kitty &
 exec-once = nm-applet &
 exec-once = hyprctl hyprpaper preload $WALLPAPER_PATH
@@ -77,19 +63,5 @@ cat > ~/.config/waybar/config <<EOL
 EOL
 echo "{}" > ~/.config/waybar/style.css
 
-echo ">>> Configurando Zsh con Powerlevel10k..."
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.powerlevel10k
-echo 'source $HOME/.powerlevel10k/powerlevel10k.zsh-theme' >> ~/.zshrc
-echo 'source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh' >> ~/.zshrc
-echo 'source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh' >> ~/.zshrc
-echo 'eval "$(zoxide init zsh)"' >> ~/.zshrc
-echo 'alias cat="bat"' >> ~/.zshrc
-echo 'alias ls="lsd"' >> ~/.zshrc
-echo 'export EDITOR=nvim' >> ~/.zshrc
-chsh -s /bin/zsh $USER
-
-echo ">>> Instalando NeoVim + NvChad..."
-git clone https://github.com/NvChad/NvChad ~/.config/nvim --depth 1
-
-echo ">>> Instalación completa 🎉"
-echo "Reinicia la sesión gráfica con Hyprland (ejecuta 'Hyprland' en TTY tras login)."
+echo ">>> Instalación mínima completa 🎉"
+echo "Inicia sesión en TTY y ejecuta 'Hyprland' para arrancar el entorno gráfico."
