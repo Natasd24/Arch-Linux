@@ -1,5 +1,5 @@
 #!/bin/bash
-# Post-instalación Arch Linux con Hyprland + utilidades modernas (México)
+# Post-instalación Arch Linux con Hyprland + utilidades modernas (México, con yay y AUR)
 # Ejecutar como usuario normal con sudo habilitado
 
 set -e
@@ -11,29 +11,37 @@ WALLPAPER_PATH="$HOME/.config/hypr/wallpaper.png"
 echo ">>> Actualizando sistema..."
 sudo pacman -Syu --noconfirm
 
-echo ">>> Instalando paquetes base para Hyprland..."
+echo ">>> Instalando paquetes base necesarios..."
 sudo pacman -S --noconfirm \
+  git base-devel wget unzip \
   hyprland \
   xdg-desktop-portal-hyprland \
   waybar \
-  eww-wayland \
   wofi \
   kitty \
   zsh \
-  zsh-syntax-highlighting \
-  zsh-autosuggestions \
-  bat \
-  lsd \
+  bat lsd \
   neovim \
-  git \
-  wget \
-  unzip \
-  base-devel \
   pipewire pipewire-pulse wireplumber \
   grim slurp wl-clipboard \
   ttf-jetbrains-mono-nerd \
   polkit-gnome \
   network-manager-applet
+
+echo ">>> Instalando yay (AUR helper)..."
+if ! command -v yay &> /dev/null; then
+  git clone https://aur.archlinux.org/yay.git /tmp/yay
+  cd /tmp/yay
+  makepkg -si --noconfirm
+  cd -
+fi
+
+echo ">>> Instalando paquetes desde AUR..."
+yay -S --noconfirm \
+  eww-git \
+  zsh-autosuggestions \
+  zsh-syntax-highlighting \
+  zoxide
 
 echo ">>> Configurando wallpaper..."
 mkdir -p "$(dirname $WALLPAPER_PATH)"
@@ -72,6 +80,8 @@ echo "{}" > ~/.config/waybar/style.css
 echo ">>> Configurando Zsh con Powerlevel10k..."
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.powerlevel10k
 echo 'source $HOME/.powerlevel10k/powerlevel10k.zsh-theme' >> ~/.zshrc
+echo 'source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh' >> ~/.zshrc
+echo 'source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh' >> ~/.zshrc
 echo 'eval "$(zoxide init zsh)"' >> ~/.zshrc
 echo 'alias cat="bat"' >> ~/.zshrc
 echo 'alias ls="lsd"' >> ~/.zshrc
@@ -83,4 +93,3 @@ git clone https://github.com/NvChad/NvChad ~/.config/nvim --depth 1
 
 echo ">>> Instalación completa 🎉"
 echo "Reinicia la sesión gráfica con Hyprland (ejecuta 'Hyprland' en TTY tras login)."
-
