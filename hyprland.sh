@@ -1,5 +1,6 @@
 #!/bin/bash
 # Script para instalar Hyprland + entorno mínimo en Arch Linux
+# Incluye configuración básica (~/.config/hypr/hyprland.conf)
 
 set -e
 
@@ -34,5 +35,46 @@ systemctl --user enable --now pipewire pipewire-pulse wireplumber
 echo "=== Creando directorios de usuario ==="
 xdg-user-dirs-update
 
-echo "=== Instalación completada con éxito 🎉 ==="
-echo "Recuerda: Inicia sesión en Hyprland desde tu gestor de sesiones o con 'Hyprland' desde TTY."
+echo "=== Creando configuración mínima de Hyprland ==="
+mkdir -p ~/.config/hypr
+
+cat > ~/.config/hypr/hyprland.conf << 'EOF'
+# ~/.config/hypr/hyprland.conf
+# Configuración mínima para iniciar con atajos básicos
+
+monitor=,preferred,auto,auto
+
+# Tecla Mod (SUPER / Windows)
+$mod = SUPER
+
+# Abrir terminal (Kitty)
+bind = $mod, Return, exec, kitty
+
+# Lanzador de aplicaciones (Wofi)
+bind = $mod, D, exec, wofi --show drun
+
+# Cerrar ventana activa
+bind = $mod, Q, killactive
+
+# Mover foco entre ventanas
+bind = $mod, H, movefocus, l
+bind = $mod, L, movefocus, r
+bind = $mod, K, movefocus, u
+bind = $mod, J, movefocus, d
+
+# Salir de Hyprland
+bind = $mod SHIFT, E, exit
+
+# Lanzar servicios gráficos
+exec-once = waybar &
+exec-once = nm-applet &
+exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+EOF
+
+echo "=== Instalación y configuración completadas con éxito 🎉 ==="
+echo "👉 Reinicia tu sesión gráfica y selecciona Hyprland."
+echo "   Atajos básicos:"
+echo "   - Super+Enter: Abrir Kitty"
+echo "   - Super+D: Abrir Wofi"
+echo "   - Super+Q: Cerrar ventana"
+echo "   - Super+Shift+E: Salir de Hyprland"
