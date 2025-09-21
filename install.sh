@@ -1,14 +1,14 @@
 #!/bin/bash
-# Instalación automática de Arch Linux en VirtualBox (México + Linux Zen)
+# Instalación automática de Arch Linux en VirtualBox (Linux Zen)
 # ⚠️ BORRA COMPLETAMENTE /dev/sda ⚠️
 
 set -e
 
 # Variables
 DISK="/dev/sda"
-HOSTNAME="arch-mx"
-USERNAME="usuario"
-PASSWORD="clave123"
+HOSTNAME="arch"
+USERNAME="arch"
+PASSWORD="arch"
 LOCALE="es_MX.UTF-8"
 KEYMAP="la-latin1"
 TIMEZONE="America/Mexico_City"
@@ -29,7 +29,7 @@ mkdir -p /mnt/boot
 mount ${DISK}1 /mnt/boot
 
 echo ">>> Instalando sistema base con kernel Linux Zen..."
-pacstrap /mnt base linux-zen linux-zen-headers linux-firmware vim nano networkmanager grub efibootmgr
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware vim nano networkmanager grub efibootmgr sudo
 
 echo ">>> Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -70,6 +70,6 @@ grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
-echo ">>> Instalación completada con Linux Zen y configuración para México."
+echo ">>> Instalación completada con Linux Zen."
 echo ">>> Ahora puedes reiniciar con 'reboot'."
 
