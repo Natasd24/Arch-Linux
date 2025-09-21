@@ -1,67 +1,38 @@
 #!/bin/bash
-# Post-instalación mínima Arch Linux con Hyprland
-# Ejecutar como usuario normal con sudo habilitado
+# Script para instalar Hyprland + entorno mínimo en Arch Linux
 
 set -e
 
-USER=$(whoami)
-WALLPAPER_URL="https://raw.githubusercontent.com/hyprwm/Hyprland/main/assets/wall.png"
-WALLPAPER_PATH="$HOME/.config/hypr/wallpaper.png"
-
-echo ">>> Actualizando sistema..."
+echo "=== Actualizando sistema ==="
 sudo pacman -Syu --noconfirm
 
-echo ">>> Instalando lo esencial para Hyprland..."
-sudo pacman -S --noconfirm \
-  hyprland \
-  xdg-desktop-portal-hyprland \
-  waybar \
-  wofi \
-  kitty \
-  pipewire pipewire-pulse wireplumber \
-  ttf-jetbrains-mono-nerd \
-  polkit-gnome \
-  network-manager-applet \
-  xdg-user-dirs
+echo "=== Instalando Hyprland y portal ==="
+sudo pacman -S --noconfirm hyprland xdg-desktop-portal-hyprland
 
-echo ">>> Configurando sudo (wheel)..."
-echo "%wheel ALL=(ALL) ALL" | sudo tee -a /etc/sudoers
+echo "=== Instalando barra, lanzador y terminal ==="
+sudo pacman -S --noconfirm waybar wofi kitty
 
-echo ">>> Creando directorios de usuario..."
+echo "=== Instalando sonido (PipeWire + WirePlumber) ==="
+sudo pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa wireplumber
+
+echo "=== Instalando fuente JetBrains Mono Nerd ==="
+sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd
+
+echo "=== Instalando Polkit (agente GNOME) ==="
+sudo pacman -S --noconfirm polkit-gnome
+
+echo "=== Instalando applet de red ==="
+sudo pacman -S --noconfirm network-manager-applet networkmanager
+
+echo "=== Instalando xdg-user-dirs ==="
+sudo pacman -S --noconfirm xdg-user-dirs
+
+echo "=== Habilitando servicios ==="
+sudo systemctl enable --now NetworkManager.service
+systemctl --user enable --now pipewire pipewire-pulse wireplumber
+
+echo "=== Creando directorios de usuario ==="
 xdg-user-dirs-update
 
-echo ">>> Configurando wallpaper..."
-mkdir -p "$(dirname $WALLPAPER_PATH)"
-wget -O "$WALLPAPER_PATH" "$WALLPAPER_URL"
-
-echo ">>> Configurando Hyprland..."
-mkdir -p ~/.config/hypr
-cat > ~/.config/hypr/hyprland.conf <<EOL
-monitor=,preferred,auto,1
-
-exec-once = waybar &
-exec-once = kitty &
-exec-once = nm-applet &
-exec-once = hyprctl hyprpaper preload $WALLPAPER_PATH
-exec-once = hyprctl hyprpaper wallpaper ",$WALLPAPER_PATH"
-
-input {
-  kb_layout = la
-}
-EOL
-
-echo ">>> Configurando Waybar..."
-mkdir -p ~/.config/waybar
-cat > ~/.config/waybar/config <<EOL
-{
-  "layer": "top",
-  "position": "top",
-  "modules-left": ["clock"],
-  "modules-center": ["workspaces"],
-  "modules-right": ["network", "pulseaudio"]
-}
-EOL
-echo "{}" > ~/.config/waybar/style.css
-
-echo ">>> Instalación mínima completa 🎉"
-echo "Inicia sesión en TTY y ejecuta 'Hyprland' para arrancar el entorno gráfico."
+echo "=== Instalación completada con éxito 🎉 ==="
+echo "Recuerda: Inicia sesión en Hyprland desde tu gestor de sesiones o con 'Hyprland' desde TTY."
