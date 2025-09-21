@@ -5,7 +5,7 @@
 set -e
 
 USER=$(whoami)
-WALLPAPER_URL="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.explicit.bing.net%2Fth%2Fid%2FOIP.LEK5piDAo2ioJ9O6dYFelAHaEG%3Fpid%3DApi&f=1&ipt=843daac58bda1bb027c83c30b9f13e45ebd76b57503fed241215a7a7793d6066&ipo=images"
+WALLPAPER_URL="https://raw.githubusercontent.com/hyprwm/Hyprland/main/assets/wall.png"
 WALLPAPER_PATH="$HOME/.config/hypr/wallpaper.png"
 
 echo ">>> Actualizando sistema..."
