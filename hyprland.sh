@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script para instalar Hyprland + entorno mínimo en Arch Linux
-# Incluye configuración básica (~/.config/hypr/hyprland.conf)
+# Versión combinada: servicios habilitados + configuración básica + barra + wallpaper
 
 set -e
 
@@ -14,7 +14,7 @@ echo "=== Instalando barra, lanzador y terminal ==="
 sudo pacman -S --noconfirm waybar wofi kitty
 
 echo "=== Instalando sonido (PipeWire + WirePlumber) ==="
-sudo pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa wireplumber
+sudo pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber
 
 echo "=== Instalando fuente JetBrains Mono Nerd ==="
 sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd
@@ -25,8 +25,8 @@ sudo pacman -S --noconfirm polkit-gnome
 echo "=== Instalando applet de red ==="
 sudo pacman -S --noconfirm network-manager-applet networkmanager
 
-echo "=== Instalando xdg-user-dirs ==="
-sudo pacman -S --noconfirm xdg-user-dirs
+echo "=== Instalando xdg-user-dirs y feh (wallpapers) ==="
+sudo pacman -S --noconfirm xdg-user-dirs feh
 
 echo "=== Habilitando servicios ==="
 sudo systemctl enable --now NetworkManager.service
@@ -40,23 +40,19 @@ mkdir -p ~/.config/hypr
 
 cat > ~/.config/hypr/hyprland.conf << 'EOF'
 # ~/.config/hypr/hyprland.conf
-# Configuración mínima para iniciar con atajos básicos
+# Configuración combinada con atajos básicos + barra + wallpaper
 
 monitor=,preferred,auto,auto
 
 # Tecla Mod (SUPER / Windows)
 $mod = SUPER
 
-# Abrir terminal (Kitty)
+# Atajos básicos
 bind = $mod, Return, exec, kitty
-
-# Lanzador de aplicaciones (Wofi)
 bind = $mod, D, exec, wofi --show drun
-
-# Cerrar ventana activa
 bind = $mod, Q, killactive
 
-# Mover foco entre ventanas
+# Mover foco entre ventanas (hjkl estilo vim)
 bind = $mod, H, movefocus, l
 bind = $mod, L, movefocus, r
 bind = $mod, K, movefocus, u
@@ -65,11 +61,38 @@ bind = $mod, J, movefocus, d
 # Salir de Hyprland
 bind = $mod SHIFT, E, exit
 
+# Recargar configuración
+bind = $mod, R, exec, hyprctl reload
+
 # Lanzar servicios gráficos
 exec-once = waybar &
 exec-once = nm-applet &
 exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+exec-once = feh --bg-fill ~/Pictures/wallpaper.jpg
 EOF
+
+echo "=== Configuración de Waybar ==="
+mkdir -p ~/.config/waybar
+cat > ~/.config/waybar/config.jsonc << 'EOF'
+{
+  "layer": "top",
+  "position": "top",
+  "modules-left": ["clock"],
+  "modules-center": ["network"],
+  "modules-right": ["pulseaudio", "tray"]
+}
+EOF
+
+cat > ~/.config/waybar/style.css << 'EOF'
+* {
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 12px;
+}
+EOF
+
+echo "=== Configurando wallpaper de ejemplo ==="
+mkdir -p ~/Pictures
+curl -L https://wallpapercave.com/wp/wp5121916.jpg -o ~/Pictures/wallpaper.jpg
 
 echo "=== Instalación y configuración completadas con éxito 🎉 ==="
 echo "👉 Reinicia tu sesión gráfica y selecciona Hyprland."
@@ -78,3 +101,4 @@ echo "   - Super+Enter: Abrir Kitty"
 echo "   - Super+D: Abrir Wofi"
 echo "   - Super+Q: Cerrar ventana"
 echo "   - Super+Shift+E: Salir de Hyprland"
+echo "   - Super+R: Recargar configuración"
