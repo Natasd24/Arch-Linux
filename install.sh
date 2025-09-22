@@ -29,7 +29,7 @@ mkdir -p /mnt/boot
 mount ${DISK}1 /mnt/boot
 
 echo ">>> Instalando sistema base con kernel Linux Zen..."
-pacstrap /mnt base linux-zen linux-zen-headers linux-firmware vim nano networkmanager grub efibootmgr sudo
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel vim nano networkmanager grub efibootmgr sudo
 
 echo ">>> Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
