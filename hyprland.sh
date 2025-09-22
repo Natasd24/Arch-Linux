@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script para instalar Hyprland + entorno mínimo en Arch Linux
-# Versión combinada: servicios habilitados + configuración básica + barra + wallpaper
+# Versión combinada: servicios habilitados + configuración básica + barra + wallpaper + VirtualBox (linux-zen compatible)
 
 set -e
 
@@ -28,9 +28,13 @@ sudo pacman -S --noconfirm network-manager-applet networkmanager
 echo "=== Instalando xdg-user-dirs y feh (wallpapers) ==="
 sudo pacman -S --noconfirm xdg-user-dirs feh
 
+echo "=== Instalando VirtualBox Guest Additions (modo DKMS para linux-zen) ==="
+sudo pacman -S --noconfirm virtualbox-guest-utils virtualbox-guest-dkms linux-headers
+
 echo "=== Habilitando servicios ==="
 sudo systemctl enable --now NetworkManager.service
 systemctl --user enable --now pipewire pipewire-pulse wireplumber
+sudo systemctl enable --now vboxservice.service
 
 echo "=== Creando directorios de usuario ==="
 xdg-user-dirs-update
@@ -92,7 +96,7 @@ EOF
 
 echo "=== Configurando wallpaper de ejemplo ==="
 mkdir -p ~/Pictures
-curl -L https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%2Fid%2FOIP.Y3wP7ApsdQPEDHNRgNYM-QHaEK%3Fpid%3DApi&f=1&ipt=e42d9578d601282ed9952c560d2096999556e02799408cd0a2121da408765707&ipo=images -o ~/Pictures/wallpaper.jpg
+curl -L https://wallpapercave.com/wp/wp5121916.jpg -o ~/Pictures/wallpaper.jpg
 
 echo "=== Instalación y configuración completadas con éxito 🎉 ==="
 echo "👉 Reinicia tu sesión gráfica y selecciona Hyprland."
@@ -102,3 +106,6 @@ echo "   - Super+D: Abrir Wofi"
 echo "   - Super+Q: Cerrar ventana"
 echo "   - Super+Shift+E: Salir de Hyprland"
 echo "   - Super+R: Recargar configuración"
+echo ""
+echo "=== VirtualBox Guest Additions habilitadas ✅ ==="
+echo "👉 Módulos DKMS instalados, funcionando con linux-zen."
