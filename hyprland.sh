@@ -92,7 +92,7 @@ EOF
 
 echo "=== Configurando wallpaper de ejemplo ==="
 mkdir -p ~/Pictures
-curl -L https://wallpapercave.com/wp/wp5121916.jpg -o ~/Pictures/wallpaper.jpg
+curl -L https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%2Fid%2FOIP.Y3wP7ApsdQPEDHNRgNYM-QHaEK%3Fpid%3DApi&f=1&ipt=e42d9578d601282ed9952c560d2096999556e02799408cd0a2121da408765707&ipo=images -o ~/Pictures/wallpaper.jpg
 
 echo "=== Instalación y configuración completadas con éxito 🎉 ==="
 echo "👉 Reinicia tu sesión gráfica y selecciona Hyprland."
