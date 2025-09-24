@@ -246,6 +246,7 @@ window#waybar {
 EOF
 
 echo "=== Configurando Kitty ==="
+mkdir -p ~/.config/kitty
 cat > ~/.config/kitty/kitty.conf << 'EOF'
 font_family JetBrainsMono Nerd Font
 font_size 12.0
@@ -268,6 +269,7 @@ wayland_titlebar_color background
 
 confirm_os_window_close 0
 EOF
+
 
 echo "=== Configurando Wofi ==="
 cat > ~/.config/wofi/style.css << 'EOF'
