@@ -15,8 +15,8 @@ sudo pacman -S --noconfirm polkit-gnome network-manager-applet
 echo "=== Instalando xdg-user-dirs y feh (wallpapers) ==="
 sudo pacman -S --noconfirm xdg-user-dirs feh
 
-echo "=== Instalando VirtualBox Guest Additions (modo DKMS para linux-zen) ==="
-sudo pacman -S --noconfirm virtualbox-guest-utils virtualbox-guest-dkms
+echo "=== Instalando VirtualBox Guest Additions ==="
+sudo pacman -S --noconfirm virtualbox-guest-utils
 
 echo "=== Instalando fuentes Nerd Fonts ==="
 sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji
