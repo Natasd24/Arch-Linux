@@ -29,7 +29,9 @@ mkdir -p /mnt/boot
 mount ${DISK}1 /mnt/boot
 
 echo ">>> Instalando sistema base con kernel Linux Zen..."
-pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel vim nano networkmanager grub efibootmgr sudo
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
+vim nano networkmanager grub efibootmgr sudo \
+xdg-user-dirs virtualbox-guest-utils
 
 echo ">>> Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -62,8 +64,9 @@ useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
 
-# Activar servicios básicos
+# Activar servicios que funcionan dentro de chroot
 systemctl enable NetworkManager
+systemctl enable vboxservice
 
 # Instalar GRUB EFI
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
@@ -71,5 +74,4 @@ grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
 echo ">>> Instalación completada con Linux Zen."
-echo ">>> Ahora puedes reiniciar con 'reboot'."
-
+echo ">>> Ahora reinicia con 'reboot' y luego ejecuta el script post-instalación."
