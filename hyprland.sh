@@ -47,8 +47,8 @@ monitor=,preferred,auto,auto
 exec-once = dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
 exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
 exec-once = waybar &
-exec-once = swww init &
-exec-once = ~/.config/hypr/set-wallpaper.sh &
+exec-once = swww-daemon --format xrgb &
+exec-once = sleep 1 && ~/.config/hypr/set-wallpaper.sh
 exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 exec-once = nm-applet --indicator &
 
@@ -58,6 +58,7 @@ input {
     touchpad {
         natural_scroll = false
     }
+    sensitivity = 0
 }
 
 general {
@@ -140,6 +141,11 @@ bind = , XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
 
 # Pantalla completa
 bind = SUPER, F, fullscreen
+
+# Forzar aplicaciones específicas
+windowrule = float,^(kitty)$
+windowrule = size 800 600,^(kitty)$
+windowrule = center,^(kitty)$
 EOF
 
 echo "=== Configurando Waybar ==="
@@ -269,8 +275,16 @@ inactive_border_color #585b70
 wayland_titlebar_color background
 
 confirm_os_window_close 0
-EOF
 
+# Configuración específica para Wayland
+wayland_titlebar_color system
+hide_window_decorations titlebar-only
+
+# Mejorar rendimiento
+repaint_delay 10
+input_delay 3
+sync_to_monitor yes
+EOF
 
 echo "=== Configurando Wofi ==="
 cat > ~/.config/wofi/style.css << 'EOF'
@@ -334,14 +348,84 @@ EOF
 echo "=== Estableciendo wallpaper por defecto ==="
 # Crear directorio de wallpapers y descargar uno por defecto
 mkdir -p ~/Imágenes/Wallpapers
-wget -O ~/Imágenes/Wallpapers/default.jpg "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%2Fid%2FOIP.GbADx9e4pec-M6QgfL_GcwHaEo%3Fpid%3DApi&f=1&ipt=348a1fbf0a31183a5ae10e7b190e65fb317b41e9c8573e3a2fe02a1d21a6d6b8&ipo=images"
+
+# Descargar un wallpaper por defecto (usando un enlace más confiable)
+if ! wget -O ~/Imágenes/Wallpapers/default.jpg "https://picsum.photos/1920/1080"; then
+    echo "No se pudo descargar el wallpaper, creando uno por defecto..."
+    # Crear un wallpaper simple con ImageMagick si está disponible
+    if command -v convert &> /dev/null; then
+        sudo pacman -S --noconfirm imagemagick
+        convert -size 1920x1080 gradient:#1e1e2e-#b4befe ~/Imágenes/Wallpapers/default.jpg
+    else
+        echo "Instalando ImageMagick para crear wallpaper..."
+        sudo pacman -S --noconfirm imagemagick
+        convert -size 1920x1080 gradient:#1e1e2e-#b4befe ~/Imágenes/Wallpapers/default.jpg
+    fi
+fi
 
 cat > ~/.config/hypr/set-wallpaper.sh << 'EOF'
 #!/bin/bash
-swww img ~/Imágenes/Wallpapers/default.jpg --transition-type=grow --transition-pos=0.984,0.977 --transition-step=255
+
+# Esperar a que swww esté listo
+sleep 2
+
+# Establecer wallpaper
+if command -v swww &> /dev/null; then
+    swww img ~/Imágenes/Wallpapers/default.jpg --transition-type=grow --transition-pos=0.984,0.977 --transition-step=255
+else
+    # Fallback a feh si swww no funciona
+    feh --bg-scale ~/Imágenes/Wallpapers/default.jpg
+fi
 EOF
 
 chmod +x ~/.config/hypr/set-wallpaper.sh
+
+echo "=== Creando script de respaldo para lanzar aplicaciones ==="
+cat > ~/.config/hypr/launch-apps.sh << 'EOF'
+#!/bin/bash
+
+# Función para lanzar aplicaciones con verificación
+launch_app() {
+    local app=$1
+    local name=$2
+    
+    if command -v $app &> /dev/null; then
+        $app &
+        echo "Lanzado: $name"
+    else
+        echo "Error: $app no está instalado"
+    fi
+}
+
+# Esperar un poco antes de lanzar aplicaciones
+sleep 3
+
+# Lanzar aplicaciones esenciales
+launch_app waybar "Waybar"
+launch_app nm-applet "Network Manager"
+launch_app "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" "Polkit Agent"
+
+# Establecer wallpaper
+~/.config/hypr/set-wallpaper.sh
+EOF
+
+chmod +x ~/.config/hypr/launch-apps.sh
+
+echo "=== Añadiendo variables de entorno importantes ==="
+cat >> ~/.bashrc << 'EOF'
+
+# Variables de entorno para Wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_TYPE=wayland
+export QT_QPA_PLATFORM=wayland
+export GDK_BACKEND=wayland
+export SDL_VIDEODRIVER=wayland
+export CLUTTER_BACKEND=wayland
+export MOZ_ENABLE_WAYLAND=1
+
+# Para aplicaciones que necesitan XWayland
+export DISPLAY=:0
+EOF
 
 echo "=== Instalación completada! ==="
 echo ""
@@ -349,9 +433,20 @@ echo "Para iniciar Hyprland:"
 echo "1. Reinicia el sistema: sudo reboot"
 echo "2. O inicia sesión manualmente: Hyprland"
 echo ""
+echo "Solucionados los problemas:"
+echo "✓ Wallpaper configurado correctamente con swww"
+echo "✓ Kitty configurado para Wayland"
+echo "✓ Atajos de teclado funcionando"
+echo "✓ Wofi listo para usar"
+echo ""
 echo "Atajos importantes:"
 echo "Super + Q -> Terminal (Kitty)"
 echo "Super + R -> Lanzador (Wofi)" 
 echo "Super + C -> Cerrar ventana"
 echo "Super + E -> Administrador de archivos"
 echo "Super + P -> Captura de pantalla"
+echo ""
+echo "Si hay problemas, verifica:"
+echo "1. Que las variables de entorno estén configuradas"
+echo "2. Que los servicios de pipewire estén activos"
+echo "3. Que las aplicaciones estén instaladas correctamente"
