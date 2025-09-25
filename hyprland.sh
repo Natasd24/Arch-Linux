@@ -48,6 +48,7 @@ exec-once = dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CUR
 exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
 exec-once = waybar &
 exec-once = swww init &
+exec-once = ~/.config/hypr/set-wallpaper.sh &
 exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 exec-once = nm-applet --indicator &
 
@@ -333,6 +334,8 @@ EOF
 echo "=== Estableciendo wallpaper por defecto ==="
 # Crear directorio de wallpapers y descargar uno por defecto
 mkdir -p ~/Imágenes/Wallpapers
+wget -O ~/Imágenes/Wallpapers/default.jpg "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%2Fid%2FOIP.GbADx9e4pec-M6QgfL_GcwHaEo%3Fpid%3DApi&f=1&ipt=348a1fbf0a31183a5ae10e7b190e65fb317b41e9c8573e3a2fe02a1d21a6d6b8&ipo=images"
+
 cat > ~/.config/hypr/set-wallpaper.sh << 'EOF'
 #!/bin/bash
 swww img ~/Imágenes/Wallpapers/default.jpg --transition-type=grow --transition-pos=0.984,0.977 --transition-step=255
