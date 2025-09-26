@@ -108,14 +108,15 @@ echo ">>> Instalando paquetes yay..."
 yay -S --noconfirm hyprland kitty brave-bin wl-clip-persist swaylock-effects \
 xviewer zsh-syntax-highlighting zsh-autosuggestions nwg-look \
 telegram-desktop visual-studio-code-bin autofirma configuradorfnmt \
-gnome-disk-utility evince sddm-theme-sugar-candy-git light
+gnome-disk-utility evince sddm-theme-sugar-candy-git light \
+xautolock megatools
 
 # 4. Instalar paquetes con pacman
 echo ">>> Instalando paquetes pacman..."
 sudo pacman -S --noconfirm sddm rofi waybar unzip pavucontrol pulseaudio pamixer \
-xautolock hyprpaper nemo cinnamon-translations grim slurp swappy dunst \
-zsh bat lsd neofetch wget udisks2 udiskie ntfs-3g vlc network-manager-applet \
-spotify-launcher megatools pacman-contrib acpi ntp
+hyprpaper nemo cinnamon-translations grim slurp swappy dunst \
+bat lsd neofetch wget udiskie ntfs-3g vlc network-manager-applet \
+spotify-launcher pacman-contrib acpi ntp
 
 # 5. Habilitar SDDM
 sudo systemctl enable sddm
