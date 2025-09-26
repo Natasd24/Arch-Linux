@@ -30,7 +30,7 @@ mount ${DISK}1 /mnt/boot
 
 echo ">>> Instalando sistema base con kernel Linux Zen..."
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
-vim nano networkmanager grub efibootmgr sudo \
+vim nano networkmanager grub efibootmgr sudo git \
 xdg-user-dirs virtualbox-guest-utils
 
 echo ">>> Generando fstab..."
