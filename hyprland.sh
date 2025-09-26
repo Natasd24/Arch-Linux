@@ -1,452 +1,129 @@
 #!/bin/bash
-# Instalación completa de Hyprland con todos los componentes
+# Instalación automática de Arch Linux + Hyprland (Linux Zen)
+# ⚠️ Este script BORRA COMPLETAMENTE /dev/sda ⚠️
 
 set -e
 
-echo "=== Instalando Hyprland y componentes esenciales ==="
-sudo pacman -S --noconfirm hyprland xdg-desktop-portal-hyprland waybar wofi kitty
+# ==========================
+# Variables
+# ==========================
+DISK="/dev/sda"
+HOSTNAME="arch"
+USERNAME="arch"
+PASSWORD="arch"
+LOCALE="es_MX.UTF-8"
+KEYMAP="la-latin1"
+TIMEZONE="America/Mexico_City"
 
-echo "=== Instalando pipewire para sonido ==="
-sudo pacman -S --noconfirm pipewire pipewire-pulse wireplumber pipewire-audio
+# ==========================
+# 1. Particionado y formateo
+# ==========================
+echo ">>> Formateando disco $DISK ..."
+parted $DISK mklabel gpt
+parted $DISK mkpart ESP fat32 1MiB 301MiB
+parted $DISK set 1 boot on
+parted $DISK mkpart primary ext4 301MiB 100%
 
-echo "=== Instalando componentes de sistema ==="
-sudo pacman -S --noconfirm polkit-gnome network-manager-applet
+mkfs.fat -F32 ${DISK}1
+mkfs.ext4 -F ${DISK}2
 
-echo "=== Instalando xdg-user-dirs y feh (wallpapers) ==="
-sudo pacman -S --noconfirm xdg-user-dirs feh
+mount ${DISK}2 /mnt
+mkdir -p /mnt/boot
+mount ${DISK}1 /mnt/boot
 
-echo "=== Instalando VirtualBox Guest Additions ==="
-sudo pacman -S --noconfirm virtualbox-guest-utils
+# ==========================
+# 2. Instalación del sistema base
+# ==========================
+echo ">>> Instalando sistema base con kernel Linux Zen..."
+pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
+vim nano networkmanager grub efibootmgr sudo git xdg-user-dirs \
+virtualbox-guest-utils
 
-echo "=== Instalando fuentes Nerd Fonts ==="
-sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji
+genfstab -U /mnt >> /mnt/etc/fstab
 
-echo "=== Instalando utilidades adicionales ==="
-sudo pacman -S --noconfirm thunar grim slurp wl-clipboard swww
+# ==========================
+# 3. Configuración dentro de chroot
+# ==========================
+arch-chroot /mnt /bin/bash <<EOF
+set -e
 
-echo "=== Habilitando servicios ==="
-sudo systemctl enable --now NetworkManager
-sudo systemctl enable --now vboxservice
+echo ">>> Configurando zona horaria y localización..."
+ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+hwclock --systohc
 
-echo "=== Configurando servicios de usuario (pipewire) ==="
-systemctl --user enable --now pipewire pipewire-pulse wireplumber
+echo "$LOCALE UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=$LOCALE" > /etc/locale.conf
+echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
 
-echo "=== Creando directorios de usuario ==="
-xdg-user-dirs-update
+echo "$HOSTNAME" > /etc/hostname
+cat <<EOT >> /etc/hosts
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
+EOT
 
-echo "=== Creando estructura de configuración ==="
-mkdir -p ~/.config/hypr
-mkdir -p ~/.config/waybar
-mkdir -p ~/.config/wofi
+# ==========================
+# Usuarios
+# ==========================
+echo ">>> Creando usuarios..."
+echo "root:$PASSWORD" | chpasswd
+useradd -m -G wheel -s /bin/bash $USERNAME
+echo "$USERNAME:$PASSWORD" | chpasswd
+echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
 
-echo "=== Configurando Hyprland ==="
-cat > ~/.config/hypr/hyprland.conf << 'EOF'
-# Configuración de Hyprland
-monitor=,preferred,auto,auto
+# ==========================
+# Servicios
+# ==========================
+systemctl enable NetworkManager
+systemctl enable vboxservice
 
-exec-once = dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
-exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
-exec-once = waybar &
-exec-once = swww-daemon --format xrgb &
-exec-once = sleep 1 && ~/.config/hypr/set-wallpaper.sh
-exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
-exec-once = nm-applet --indicator &
+# ==========================
+# Bootloader
+# ==========================
+echo ">>> Instalando GRUB EFI..."
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
 
-input {
-    kb_layout = la-latin1
-    follow_mouse = 1
-    touchpad {
-        natural_scroll = false
-    }
-    sensitivity = 0
-}
+# ==========================
+# 4. Post-instalación (ejecutado como usuario normal)
+# ==========================
+su - $USERNAME <<'EOSU'
+set -e
 
-general {
-    gaps_in = 5
-    gaps_out = 20
-    border_size = 2
-    col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg
-    col.inactive_border = rgba(595959aa)
-    layout = dwindle
-    cursor_inactive_timeout = 0
-}
+echo ">>> Configuración post-instalación (Hyprland + paquetes extra)"
 
-decoration {
-    rounding = 10
-    
-    blur {
-        enabled = true
-        size = 3
-        passes = 1
-    }
-    
-    drop_shadow = yes
-    shadow_range = 4
-    shadow_render_power = 3
-    col.shadow = rgba(1a1a1aee)
-}
+# 1. Actualización
+sudo pacman -Syu --noconfirm
 
-animations {
-    enabled = yes
-    
-    bezier = myBezier, 0.05, 0.9, 0.1, 1.05
-    
-    animation = windows, 1, 7, myBezier
-    animation = windowsOut, 1, 7, default, popin 80%
-    animation = border, 1, 10, default
-    animation = fade, 1, 7, default
-    animation = workspaces, 1, 6, default
-}
+# 2. Instalar yay
+echo ">>> Instalando yay..."
+git clone https://aur.archlinux.org/yay-git.git
+cd yay-git
+makepkg -si --noconfirm
+cd ..
 
-dwindle {
-    pseudotile = yes
-    preserve_split = yes
-}
+# 3. Instalar paquetes con yay
+echo ">>> Instalando paquetes yay..."
+yay -S --noconfirm hyprland kitty brave-bin wl-clip-persist swaylock-effects \
+xviewer zsh-syntax-highlighting zsh-autosuggestions nwg-look \
+telegram-desktop visual-studio-code-bin autofirma configuradorfnmt \
+gnome-disk-utility evince sddm-theme-sugar-candy-git light
 
-master {
-    new_is_master = true
-}
+# 4. Instalar paquetes con pacman
+echo ">>> Instalando paquetes pacman..."
+sudo pacman -S --noconfirm sddm rofi waybar unzip pavucontrol pulseaudio pamixer \
+xautolock hyprpaper nemo cinnamon-translations grim slurp swappy dunst \
+zsh bat lsd neofetch wget udisks2 udiskie ntfs-3g vlc network-manager-applet \
+spotify-launcher megatools pacman-contrib acpi ntp
 
-gestures {
-    workspace_swipe = false
-}
+# 5. Habilitar SDDM
+sudo systemctl enable sddm
 
-# Atajos de teclado
-bind = SUPER, Q, exec, kitty
-bind = SUPER, C, killactive
-bind = SUPER, M, exit
-bind = SUPER, E, exec, thunar
-bind = SUPER, V, togglefloating
-bind = SUPER, R, exec, wofi --show drun
-bind = SUPER, P, exec, grim -g "$(slurp)" - | wl-copy
+echo ">>> Post-instalación completada."
+EOSU
 
-# Cambiar workspace
-bind = SUPER, 1, workspace, 1
-bind = SUPER, 2, workspace, 2
-bind = SUPER, 3, workspace, 3
-bind = SUPER, 4, workspace, 4
-bind = SUPER, 5, workspace, 5
-
-# Mover ventana al workspace
-bind = SUPER SHIFT, 1, movetoworkspace, 1
-bind = SUPER SHIFT, 2, movetoworkspace, 2
-bind = SUPER SHIFT, 3, movetoworkspace, 3
-bind = SUPER SHIFT, 4, movetoworkspace, 4
-bind = SUPER SHIFT, 5, movetoworkspace, 5
-
-# Control de audio
-bind = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
-bind = , XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-bind = , XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-
-# Pantalla completa
-bind = SUPER, F, fullscreen
-
-# Forzar aplicaciones específicas
-windowrule = float,^(kitty)$
-windowrule = size 800 600,^(kitty)$
-windowrule = center,^(kitty)$
 EOF
 
-echo "=== Configurando Waybar ==="
-cat > ~/.config/waybar/config << 'EOF'
-{
-    "layer": "top",
-    "position": "top",
-    "height": 35,
-    "spacing": 4,
-    
-    "modules-left": ["hyprland/workspaces"],
-    "modules-center": ["clock"],
-    "modules-right": ["cpu", "memory", "battery", "pulseaudio", "network", "tray"],
-    
-    "hyprland/workspaces": {
-        "disable-scroll": true,
-        "all-outputs": true,
-        "format": "{icon}",
-        "format-icons": {
-            "1": "",
-            "2": "",
-            "3": "",
-            "4": "",
-            "5": ""
-        }
-    },
-    
-    "clock": {
-        "format": " {:%H:%M}",
-        "format-alt": " {:%d/%m/%Y}",
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
-    },
-    
-    "cpu": {
-        "format": " {usage}%",
-        "tooltip": false
-    },
-    
-    "memory": {
-        "format": " {}%",
-        "tooltip": false
-    },
-    
-    "battery": {
-        "format": "{icon} {capacity}%",
-        "format-icons": ["", "", "", "", ""],
-        "tooltip": false
-    },
-    
-    "pulseaudio": {
-        "format": "{icon} {volume}%",
-        "format-muted": " Muted",
-        "format-icons": ["", "", ""],
-        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
-        "tooltip": false
-    },
-    
-    "network": {
-        "format-wifi": " {signalStrength}%",
-        "format-ethernet": " Connected",
-        "format-disconnected": " Disconnected",
-        "tooltip": false
-    },
-    
-    "tray": {
-        "spacing": 10
-    }
-}
-EOF
-
-cat > ~/.config/waybar/style.css << 'EOF'
-* {
-    border: none;
-    border-radius: 0;
-    font-family: "JetBrainsMono Nerd Font";
-    font-weight: bold;
-    font-size: 14px;
-    min-height: 0;
-}
-
-window#waybar {
-    background: rgba(21, 18, 27, 0.8);
-    color: #cdd6f4;
-}
-
-#workspaces button {
-    padding: 0 8px;
-    background: transparent;
-    color: #cdd6f4;
-    border: 2px solid transparent;
-    border-radius: 8px;
-}
-
-#workspaces button.active {
-    background: linear-gradient(45deg, #cba6f7, #f5c2e7);
-    color: #1e1e2e;
-}
-
-#clock, #cpu, #memory, #battery, #pulseaudio, #network {
-    padding: 0 10px;
-    margin: 0 3px;
-    background: rgba(127, 132, 156, 0.2);
-    border-radius: 8px;
-}
-EOF
-
-echo "=== Configurando Kitty ==="
-mkdir -p ~/.config/kitty
-cat > ~/.config/kitty/kitty.conf << 'EOF'
-font_family JetBrainsMono Nerd Font
-font_size 12.0
-
-background #1e1e2e
-foreground #cdd6f4
-
-selection_background #585b70
-selection_foreground #cdd6f4
-
-cursor #f5e0dc
-cursor_text_color #11111b
-
-url_color #89b4fa
-
-active_border_color #b4befe
-inactive_border_color #585b70
-
-wayland_titlebar_color background
-
-confirm_os_window_close 0
-
-# Configuración específica para Wayland
-wayland_titlebar_color system
-hide_window_decorations titlebar-only
-
-# Mejorar rendimiento
-repaint_delay 10
-input_delay 3
-sync_to_monitor yes
-EOF
-
-echo "=== Configurando Wofi ==="
-cat > ~/.config/wofi/style.css << 'EOF'
-window {
-    margin: 0px;
-    border: 2px solid #b4befe;
-    background-color: #1e1e2e;
-    border-radius: 10px;
-}
-
-#input {
-    margin: 5px;
-    border: none;
-    color: #cdd6f4;
-    background-color: #313244;
-    border-radius: 5px;
-}
-
-#inner-box {
-    margin: 5px;
-    border: none;
-    background-color: #1e1e2e;
-}
-
-#outer-box {
-    margin: 5px;
-    border: none;
-    background-color: #1e1e2e;
-}
-
-#scroll {
-    margin: 0px;
-    border: none;
-}
-
-#text {
-    margin: 5px;
-    border: none;
-    color: #cdd6f4;
-} 
-
-#entry:selected {
-    background-color: #b4befe;
-    border-radius: 5px;
-}
-
-#text:selected {
-    color: #1e1e2e;
-}
-EOF
-
-echo "=== Configurando auto-inicio de Hyprland ==="
-cat >> ~/.bash_profile << 'EOF'
-
-# Auto-start Hyprland on tty1
-if [ -z "${WAYLAND_DISPLAY}" ] && [ "${XDG_VTNR}" -eq 1 ]; then
-    exec Hyprland
-fi
-EOF
-
-echo "=== Estableciendo wallpaper por defecto ==="
-# Crear directorio de wallpapers y descargar uno por defecto
-mkdir -p ~/Imágenes/Wallpapers
-
-# Descargar un wallpaper por defecto (usando un enlace más confiable)
-if ! wget -O ~/Imágenes/Wallpapers/default.jpg "https://picsum.photos/1920/1080"; then
-    echo "No se pudo descargar el wallpaper, creando uno por defecto..."
-    # Crear un wallpaper simple con ImageMagick si está disponible
-    if command -v convert &> /dev/null; then
-        sudo pacman -S --noconfirm imagemagick
-        convert -size 1920x1080 gradient:#1e1e2e-#b4befe ~/Imágenes/Wallpapers/default.jpg
-    else
-        echo "Instalando ImageMagick para crear wallpaper..."
-        sudo pacman -S --noconfirm imagemagick
-        convert -size 1920x1080 gradient:#1e1e2e-#b4befe ~/Imágenes/Wallpapers/default.jpg
-    fi
-fi
-
-cat > ~/.config/hypr/set-wallpaper.sh << 'EOF'
-#!/bin/bash
-
-# Esperar a que swww esté listo
-sleep 2
-
-# Establecer wallpaper
-if command -v swww &> /dev/null; then
-    swww img ~/Imágenes/Wallpapers/default.jpg --transition-type=grow --transition-pos=0.984,0.977 --transition-step=255
-else
-    # Fallback a feh si swww no funciona
-    feh --bg-scale ~/Imágenes/Wallpapers/default.jpg
-fi
-EOF
-
-chmod +x ~/.config/hypr/set-wallpaper.sh
-
-echo "=== Creando script de respaldo para lanzar aplicaciones ==="
-cat > ~/.config/hypr/launch-apps.sh << 'EOF'
-#!/bin/bash
-
-# Función para lanzar aplicaciones con verificación
-launch_app() {
-    local app=$1
-    local name=$2
-    
-    if command -v $app &> /dev/null; then
-        $app &
-        echo "Lanzado: $name"
-    else
-        echo "Error: $app no está instalado"
-    fi
-}
-
-# Esperar un poco antes de lanzar aplicaciones
-sleep 3
-
-# Lanzar aplicaciones esenciales
-launch_app waybar "Waybar"
-launch_app nm-applet "Network Manager"
-launch_app "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" "Polkit Agent"
-
-# Establecer wallpaper
-~/.config/hypr/set-wallpaper.sh
-EOF
-
-chmod +x ~/.config/hypr/launch-apps.sh
-
-echo "=== Añadiendo variables de entorno importantes ==="
-cat >> ~/.bashrc << 'EOF'
-
-# Variables de entorno para Wayland
-export XDG_CURRENT_DESKTOP=Hyprland
-export XDG_SESSION_TYPE=wayland
-export QT_QPA_PLATFORM=wayland
-export GDK_BACKEND=wayland
-export SDL_VIDEODRIVER=wayland
-export CLUTTER_BACKEND=wayland
-export MOZ_ENABLE_WAYLAND=1
-
-# Para aplicaciones que necesitan XWayland
-export DISPLAY=:0
-EOF
-
-echo "=== Instalación completada! ==="
-echo ""
-echo "Para iniciar Hyprland:"
-echo "1. Reinicia el sistema: sudo reboot"
-echo "2. O inicia sesión manualmente: Hyprland"
-echo ""
-echo "Solucionados los problemas:"
-echo "✓ Wallpaper configurado correctamente con swww"
-echo "✓ Kitty configurado para Wayland"
-echo "✓ Atajos de teclado funcionando"
-echo "✓ Wofi listo para usar"
-echo ""
-echo "Atajos importantes:"
-echo "Super + Q -> Terminal (Kitty)"
-echo "Super + R -> Lanzador (Wofi)" 
-echo "Super + C -> Cerrar ventana"
-echo "Super + E -> Administrador de archivos"
-echo "Super + P -> Captura de pantalla"
-echo ""
-echo "Si hay problemas, verifica:"
-echo "1. Que las variables de entorno estén configuradas"
-echo "2. Que los servicios de pipewire estén activos"
-echo "3. Que las aplicaciones estén instaladas correctamente"
+echo ">>> Instalación COMPLETA con Linux Zen + Hyprland."
+echo ">>> Ahora puedes reiniciar con: reboot"
