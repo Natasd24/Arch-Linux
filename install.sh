@@ -9,9 +9,9 @@ DISK="/dev/sda"
 HOSTNAME="arch-hypr"
 USERNAME="arch"
 PASSWORD="arch"
-LOCALE="es_ES.UTF-8"  
-KEYMAP="es"           
-TIMEZONE="America/Mexico_City"
+LOCALE="es_ES.UTF-8"  # Cambiado a español de España
+KEYMAP="es"           # Cambiado a layout español
+TIMEZONE="Europe/Madrid"  # Cambiado a Madrid
 
 echo ">>> Formateando disco..."
 parted $DISK mklabel gpt
