@@ -1,6 +1,6 @@
 #!/bin/bash
 # Post-Instalación para Hyprland - Toolbox Essentials 🧰
-# Ejecutar después del script de instalación base
+# SIN login gráfico (SDDM removido)
 
 set -e
 
@@ -68,29 +68,23 @@ sudo pacman -S \
     --noconfirm
 print_status "Fuentes Nerd instaladas"
 
-# 4. GESTOR DE PANTALLA (SDDM)
-print_status "Instalando SDDM..."
-sudo pacman -S sddm sddm-kcm --noconfirm
-sudo systemctl enable sddm.service
-print_status "SDDM instalado y habilitado"
-
-# 5. NAVEGADOR WEB (Firefox - REEMPLAZA Brave)
+# 4. NAVEGADOR WEB (Firefox)
 print_status "Instalando Firefox..."
 sudo pacman -S firefox firefox-i18n-es-mx --noconfirm
 print_status "Firefox instalado"
 
-# 6. EMULADOR DE TERMINAL (Kitty)
+# 5. EMULADOR DE TERMINAL (Kitty)
 print_status "Instalando Kitty..."
 sudo pacman -S kitty --noconfirm
 print_status "Kitty instalado"
 
-# 7. EDITORES DE TEXTO/CÓDIGO
+# 6. EDITORES DE TEXTO/CÓDIGO
 print_status "Instalando editores..."
 sudo pacman -S nano vim --noconfirm
 yay -S visual-studio-code-bin --noconfirm
 print_status "Editores instalados"
 
-# 8. HERRAMIENTAS ESENCIALES
+# 7. HERRAMIENTAS ESENCIALES
 print_status "Instalando herramientas adicionales..."
 sudo pacman -S \
     tar \
@@ -101,10 +95,11 @@ sudo pacman -S \
     curl \
     rsync \
     bash-completion \
+    xorg-xinit \  # ← Añadido para startx
     --noconfirm
 print_status "Herramientas instaladas"
 
-# 9. HERRAMIENTAS PARA HYPRLAND (adicionales)
+# 8. HERRAMIENTAS PARA HYPRLAND (adicionales)
 print_status "Instalando herramientas específicas para Hyprland..."
 sudo pacman -S \
     hyprland \
@@ -120,7 +115,7 @@ sudo pacman -S \
     --noconfirm
 print_status "Herramientas Hyprland instaladas"
 
-# 10. CONFIGURACIÓN FINAL
+# 9. CONFIGURACIÓN FINAL
 print_status "Configurando entorno..."
 
 # Generar carpetas de usuario
@@ -128,6 +123,15 @@ xdg-user-dirs-update
 
 # Configurar Pipewire para usuario actual
 systemctl --user enable --now pipewire pipewire-pulse wireplumber
+
+# Crear archivo .xinitrc para startx
+print_status "Configurando .xinitrc para iniciar Hyprland con startx..."
+cat > ~/.xinitrc << 'EOL'
+#!/bin/bash
+# Iniciar Hyprland con startx
+exec Hyprland
+EOL
+chmod +x ~/.xinitrc
 
 # Mensaje final
 echo ""
@@ -139,16 +143,18 @@ echo "Herramientas instaladas:"
 echo "✅ yay (AUR helper)"
 echo "✅ Pipewire + Wireplumber (audio)"
 echo "✅ Nerd Fonts (fuentes)"
-echo "✅ SDDM (gestor de pantalla)"
 echo "✅ Firefox (navegador)"
 echo "✅ Kitty (terminal)"
 echo "✅ VS Code + nano (editores)"
 echo "✅ Hyprland + herramientas"
+echo "❌ SDDM (login gráfico) - REMOVIDO"
 echo ""
-echo "Próximos pasos:"
+echo "=== CÓMO INICIAR HYPRLAND ==="
 echo "1. Reiniciar: sudo reboot"
-echo "2. Iniciar sesión en SDDM"
-echo "3. Configurar Hyprland según tus necesidades"
+echo "2. Iniciar sesión en modo texto"
+echo "3. Ejecutar: startx"
 echo ""
-
-print_warning "Configuración de teclado español aplicada"
+echo "O instalar un display manager después si lo prefieres:"
+echo "sudo pacman -S sddm"
+echo "sudo systemctl enable sddm"
+echo ""
