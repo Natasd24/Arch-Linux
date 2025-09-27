@@ -1,130 +1,154 @@
 #!/bin/bash
-# Instalación automática de Arch Linux + Hyprland (Linux Zen)
-# ⚠️ Este script BORRA COMPLETAMENTE /dev/sda ⚠️
+# Post-Instalación para Hyprland - Toolbox Essentials 🧰
+# Ejecutar después del script de instalación base
 
 set -e
 
-# ==========================
-# Variables
-# ==========================
-DISK="/dev/sda"
-HOSTNAME="arch"
-USERNAME="arch"
-PASSWORD="arch"
-LOCALE="es_MX.UTF-8"
-KEYMAP="la-latin1"
-TIMEZONE="America/Mexico_City"
+echo ">>> Instalando Toolbox Essentials para Hyprland..."
 
-# ==========================
-# 1. Particionado y formateo
-# ==========================
-echo ">>> Formateando disco $DISK ..."
-parted $DISK mklabel gpt
-parted $DISK mkpart ESP fat32 1MiB 301MiB
-parted $DISK set 1 boot on
-parted $DISK mkpart primary ext4 301MiB 100%
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-mkfs.fat -F32 ${DISK}1
-mkfs.ext4 -F ${DISK}2
+# Función para imprimir mensajes
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
 
-mount ${DISK}2 /mnt
-mkdir -p /mnt/boot
-mount ${DISK}1 /mnt/boot
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
 
-# ==========================
-# 2. Instalación del sistema base
-# ==========================
-echo ">>> Instalando sistema base con kernel Linux Zen..."
-pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
-vim nano networkmanager grub efibootmgr sudo git xdg-user-dirs \
-virtualbox-guest-utils
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
-genfstab -U /mnt >> /mnt/etc/fstab
+# Verificar que estamos como usuario normal (no root)
+if [ "$EUID" -eq 0 ]; then
+    print_error "No ejecutar como root. Crear usuario primero."
+    exit 1
+fi
 
-# ==========================
-# 3. Configuración dentro de chroot
-# ==========================
-arch-chroot /mnt /bin/bash <<EOF
-set -e
-
-echo ">>> Configurando zona horaria y localización..."
-ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
-hwclock --systohc
-
-echo "$LOCALE UTF-8" >> /etc/locale.gen
-locale-gen
-echo "LANG=$LOCALE" > /etc/locale.conf
-echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
-
-echo "$HOSTNAME" > /etc/hostname
-cat <<EOT >> /etc/hosts
-127.0.0.1   localhost
-::1         localhost
-127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
-EOT
-
-# ==========================
-# Usuarios
-# ==========================
-echo ">>> Creando usuarios..."
-echo "root:$PASSWORD" | chpasswd
-useradd -m -G wheel -s /bin/bash $USERNAME
-echo "$USERNAME:$PASSWORD" | chpasswd
-echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
-
-# ==========================
-# Servicios
-# ==========================
-systemctl enable NetworkManager
-systemctl enable vboxservice
-
-# ==========================
-# Bootloader
-# ==========================
-echo ">>> Instalando GRUB EFI..."
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-grub-mkconfig -o /boot/grub/grub.cfg
-
-# ==========================
-# 4. Post-instalación (ejecutado como usuario normal)
-# ==========================
-su - $USERNAME <<'EOSU'
-set -e
-
-echo ">>> Configuración post-instalación (Hyprland + paquetes extra)"
-
-# 1. Actualización
-sudo pacman -Syu --noconfirm
-
-# 2. Instalar yay
-echo ">>> Instalando yay..."
-git clone https://aur.archlinux.org/yay-git.git
-cd yay-git
-makepkg -si --noconfirm
+# 1. INSTALAR AYUDANTE DE AUR (yay)
+print_status "Instalando yay (AUR helper)..."
+sudo pacman -S --needed git base-devel --noconfirm
+if [ ! -d "yay" ]; then
+    git clone https://aur.archlinux.org/yay.git
+fi
+cd yay && makepkg -si --noconfirm
 cd ..
+print_status "yay instalado correctamente"
 
-# 3. Instalar paquetes con yay
-echo ">>> Instalando paquetes yay..."
-yay -S --noconfirm hyprland kitty brave-bin wl-clip-persist swaylock-effects \
-xviewer zsh-syntax-highlighting zsh-autosuggestions nwg-look \
-telegram-desktop visual-studio-code-bin autofirma configuradorfnmt \
-gnome-disk-utility evince sddm-theme-sugar-candy-git light \
-xautolock megatools
+# 2. PILA DE AUDIO (Pipewire)
+print_status "Instalando Pipewire y Wireplumber..."
+sudo pacman -S pipewire pipewire-pulse pipewire-alsa wireplumber --noconfirm
+systemctl --user enable --now pipewire pipewire-pulse wireplumber
+print_status "Audio stack configurado"
 
-# 4. Instalar paquetes con pacman
-echo ">>> Instalando paquetes pacman..."
-sudo pacman -S --noconfirm sddm rofi waybar unzip pavucontrol pulseaudio pamixer \
-hyprpaper nemo cinnamon-translations grim slurp swappy dunst \
-bat lsd neofetch wget udiskie ntfs-3g vlc network-manager-applet \
-spotify-launcher pacman-contrib acpi ntp
+# 3. FUENTES NERD
+print_status "Instalando Nerd Fonts..."
+sudo pacman -S \
+    ttf-cascadia-code-nerd \
+    ttf-cascadia-mono-nerd \
+    ttf-fira-code \
+    ttf-fira-mono \
+    ttf-fira-sans \
+    ttf-firacode-nerd \
+    ttf-iosevka-nerd \
+    ttf-iosevkaterm-nerd \
+    ttf-jetbrains-mono-nerd \
+    ttf-jetbrains-mono \
+    ttf-nerd-fonts-symbols \
+    ttf-nerd-fonts-symbols-mono \
+    noto-fonts \
+    noto-fonts-cjk \
+    noto-fonts-emoji \
+    --noconfirm
+print_status "Fuentes Nerd instaladas"
 
-# 5. Habilitar SDDM
-sudo systemctl enable sddm
+# 4. GESTOR DE PANTALLA (SDDM)
+print_status "Instalando SDDM..."
+sudo pacman -S sddm sddm-kcm --noconfirm
+sudo systemctl enable sddm.service
+print_status "SDDM instalado y habilitado"
 
-echo ">>> Post-instalación completada."
-EOSU
+# 5. NAVEGADOR WEB (Firefox - REEMPLAZA Brave)
+print_status "Instalando Firefox..."
+sudo pacman -S firefox firefox-i18n-es-mx --noconfirm
+print_status "Firefox instalado"
 
-EOF
+# 6. EMULADOR DE TERMINAL (Kitty)
+print_status "Instalando Kitty..."
+sudo pacman -S kitty --noconfirm
+print_status "Kitty instalado"
 
-echo ">>> Instalación COMPLETA con Linux Zen + Hyprland."
-echo ">>> Ahora puedes reiniciar con: reboot"
+# 7. EDITORES DE TEXTO/CÓDIGO
+print_status "Instalando editores..."
+sudo pacman -S nano vim --noconfirm
+yay -S visual-studio-code-bin --noconfirm
+print_status "Editores instalados"
+
+# 8. HERRAMIENTAS ESENCIALES
+print_status "Instalando herramientas adicionales..."
+sudo pacman -S \
+    tar \
+    zip \
+    unzip \
+    p7zip \
+    wget \
+    curl \
+    rsync \
+    bash-completion \
+    --noconfirm
+print_status "Herramientas instaladas"
+
+# 9. HERRAMIENTAS PARA HYPRLAND (adicionales)
+print_status "Instalando herramientas específicas para Hyprland..."
+sudo pacman -S \
+    hyprland \
+    waybar \
+    rofi \
+    thunar \
+    gvfs \
+    xdg-user-dirs \
+    network-manager-applet \
+    blueman \
+    brightnessctl \
+    playerctl \
+    --noconfirm
+print_status "Herramientas Hyprland instaladas"
+
+# 10. CONFIGURACIÓN FINAL
+print_status "Configurando entorno..."
+
+# Generar carpetas de usuario
+xdg-user-dirs-update
+
+# Configurar Pipewire para usuario actual
+systemctl --user enable --now pipewire pipewire-pulse wireplumber
+
+# Mensaje final
+echo ""
+echo "=================================================="
+print_status "INSTALACIÓN COMPLETADA 🎉"
+echo "=================================================="
+echo ""
+echo "Herramientas instaladas:"
+echo "✅ yay (AUR helper)"
+echo "✅ Pipewire + Wireplumber (audio)"
+echo "✅ Nerd Fonts (fuentes)"
+echo "✅ SDDM (gestor de pantalla)"
+echo "✅ Firefox (navegador)"
+echo "✅ Kitty (terminal)"
+echo "✅ VS Code + nano (editores)"
+echo "✅ Hyprland + herramientas"
+echo ""
+echo "Próximos pasos:"
+echo "1. Reiniciar: sudo reboot"
+echo "2. Iniciar sesión en SDDM"
+echo "3. Configurar Hyprland según tus necesidades"
+echo ""
+
+print_warning "Configuración de teclado español aplicada"
