@@ -9,9 +9,9 @@ DISK="/dev/sda"
 HOSTNAME="arch-hypr"
 USERNAME="arch"
 PASSWORD="arch"
-LOCALE="es_ES.UTF-8"  # Cambiado a español de España
-KEYMAP="es"           # Cambiado a layout español
-TIMEZONE="Europe/Madrid"  # Cambiado a Madrid
+LOCALE="es_ES.UTF-8"
+KEYMAP="es"
+TIMEZONE="Europe/Madrid"
 
 echo ">>> Configurando teclado español..."
 loadkeys es
@@ -23,7 +23,7 @@ echo ">>> Formateando disco..."
 parted $DISK mklabel gpt
 parted $DISK mkpart ESP fat32 1MiB 301MiB
 parted $DISK set 1 boot on
-parted $DISK mkpart primary ext4 301MiB 100%  # Solo 2 particiones
+parted $DISK mkpart primary ext4 301MiB 100%
 
 # Crear filesystems
 mkfs.fat -F32 ${DISK}1
@@ -35,9 +35,10 @@ mkdir -p /mnt/boot
 mount ${DISK}1 /mnt/boot
 
 echo ">>> Instalando sistema base con kernel Linux Zen..."
+# QUITADO: sddm (login gráfico)
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
 vim nano networkmanager grub efibootmgr sudo git \
-xdg-user-dirs pipewire wireplumber sddm kitty tar firefox
+xdg-user-dirs pipewire wireplumber kitty tar firefox  # ← sddm removido
 
 echo ">>> Configurando sistema..."
 arch-chroot /mnt /bin/bash <<EOF
@@ -74,9 +75,8 @@ echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
 pacman -S terminus-font --noconfirm
 echo "FONT=ter-118n" >> /etc/vconsole.conf
 
-# Activar servicios
+# Activar servicios (SOLO NetworkManager, NO sddm)
 systemctl enable NetworkManager
-systemctl enable sddm
 
 # Instalar GRUB EFI
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
@@ -88,8 +88,14 @@ echo ">>> Configurando fuente de consola..."
 setfont ter-118n
 
 echo ">>> Instalación base completada."
+echo ""
+echo ">>> AL REINICIAR SALDRÁ EN MODO TEXTO (sin login gráfico)"
+echo ">>> Para iniciar Hyprland manualmente:"
+echo ">>> 1. Login con usuario/contraseña"
+echo ">>> 2. Ejecutar: startx" 
+echo ">>> 3. O configurar un gestor de sesiones después"
+echo ""
 echo ">>> Particiones creadas:"
 lsblk
 echo ""
 echo ">>> Reinicia con: umount -R /mnt && reboot"
-echo ">>> Luego inicia sesión y ejecuta el script de post-instalación si es necesario."
