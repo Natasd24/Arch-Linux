@@ -9,15 +9,15 @@ DISK="/dev/sda"
 HOSTNAME="arch-hypr"
 USERNAME="arch"
 PASSWORD="arch"
-LOCALE="es_ES.UTF-8"  # Cambiado a español de España
-KEYMAP="es"           # Cambiado a layout español
-TIMEZONE="Europe/Madrid"  # Cambiado a Madrid
+LOCALE="es_ES.UTF-8"
+KEYMAP="es"
+TIMEZONE="Europe/Madrid"
 
 echo ">>> Formateando disco..."
 parted $DISK mklabel gpt
 parted $DISK mkpart ESP fat32 1MiB 301MiB
 parted $DISK set 1 boot on
-parted $DISK mkpart primary linux-swap 301MiB 16GiB  # SWAP añadido
+parted $DISK mkpart primary linux-swap 301MiB 16GiB
 parted $DISK mkpart primary ext4 16GiB 100%
 
 # Crear filesystems
@@ -68,7 +68,7 @@ useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
 
-# Configurar fuente de consola (más legible)
+# Configurar fuente de consola
 echo "FONT=ter-118n" >> /etc/vconsole.conf
 
 # Activar servicios
@@ -83,40 +83,65 @@ EOF
 echo ">>> Instalando fuentes Nerd Fonts..."
 arch-chroot /mnt /bin/bash <<'EOF'
 pacman -S --noconfirm \
-    ttf-cascadia-code-nerd \
-    ttf-cascadia-mono-nerd \
-    ttf-fira-code \
-    ttf-fira-mono \
-    ttf-fira-sans \
-    ttf-firacode-nerd \
-    ttf-iosevka-nerd \
-    ttf-iosevkaterm-nerd \
     ttf-jetbrains-mono-nerd \
-    ttf-jetbrains-mono \
-    ttf-nerd-fonts-symbols \
-    ttf-nerd-fonts-symbols-mono \
     noto-fonts \
-    noto-fonts-cjk \
     noto-fonts-emoji
 EOF
 
-echo ">>> Instalando yay (AUR Helper)..."
+echo ">>> Instalando Hyprland y componentes esenciales..."
 arch-chroot /mnt /bin/bash <<'EOF'
-cd /tmp
+pacman -S --noconfirm hyprland waybar rofi thunar firefox
+EOF
+
+echo ">>> Preparando instalación de yay..."
+arch-chroot /mnt /bin/bash <<EOF
+# Instalar dependencias necesarias para yay
+pacman -S --noconfirm --needed git base-devel go
+
+# Configurar el usuario para makepkg
+echo ">>> Configurando makepkg para el usuario $USERNAME..."
 sudo -u $USERNAME bash -c '
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
-    makepkg -si --noconfirm
+    # Crear configuración de makepkg
+    mkdir -p ~/.config/makepkg
+    cat > ~/.config/makepkg/makepkg.conf <<EOL
+MAKEFLAGS="-j\$(nproc)"
+BUILDDIR=/tmp/makepkg
+PKGDEST=/tmp/makepkg
+PACKAGER="$USERNAME <$USERNAME@$HOSTNAME>"
+EOL
 '
+EOF
+
+echo ">>> Instalando yay (AUR Helper)..."
+arch-chroot /mnt /bin/bash <<EOF
+cd /tmp
+rm -rf yay 2>/dev/null || true
+
+# Clonar yay como usuario normal
+sudo -u $USERNAME git clone https://aur.archlinux.org/yay.git
+cd yay
+
+# Instalar yay sin confirmación interactiva
+sudo -u $USERNAME bash -c '
+    # Forzar la instalación sin preguntas
+    yes | makepkg -si --noconfirm --needed
+'
+
+# Verificar instalación
+sudo -u $USERNAME yay --version && echo ">>> Yay instalado correctamente"
 EOF
 
 echo ">>> Instalando aplicaciones adicionales desde AUR..."
 arch-chroot /mnt /bin/bash <<EOF
-# Como usuario normal
-sudo -u $USERNAME yay -S --noconfirm brave-bin visual-studio-code-bin
+# Configurar yay para no pedir confirmación
+sudo -u $USERNAME yay -Y --gendb
+sudo -u $USERNAME yay -Y --devel --save
+sudo -u $USERNAME yay -Y --combinedupgrade --save
 
-# Instalar Hyprland y componentes esenciales
-pacman -S --noconfirm hyprland waybar rofi thunar firefox
+# Instalar aplicaciones AUR
+sudo -u $USERNAME yay -S --noconfirm brave-bin
+# visual-studio-code-bin puede ser muy grande, opcional
+# sudo -u $USERNAME yay -S --noconfirm visual-studio-code-bin
 EOF
 
 echo ">>> Configuración post-instalación..."
@@ -125,7 +150,10 @@ arch-chroot /mnt /bin/bash <<EOF
 sudo -u $USERNAME xdg-user-dirs-update
 
 # Configurar PipeWire para audio
-systemctl --user enable pipewire pipewire-pulse wireplumber
+sudo -u $USERNAME systemctl --user enable pipewire pipewire-pulse wireplumber
+
+# Configurar permisos para el usuario
+chown -R $USERNAME:$USERNAME /home/$USERNAME
 
 # Mensaje de finalización
 echo ">>> Instalación completada!"
