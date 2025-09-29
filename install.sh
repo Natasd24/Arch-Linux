@@ -1,18 +1,18 @@
-# Instalación automática de Arch Linux en VirtualBox (Linux Zen)
+# Instalación automática y correcta de Arch Linux en VirtualBox (Linux Zen)
 # ⚠️ BORRA COMPLETAMENTE /dev/sda ⚠️
 
 set -e
 
 # Variables de Configuración
 DISK="/dev/sda"
-HOSTNAME="arch" # Nombre de la máquina
-USERNAME="arch" # Nombre del usuario normal
-PASSWORD="arch" # Contraseña para root y usuario normal
-LOCALE="es_MX.UTF-8" # Configuración regional
-KEYMAP="la-latin1" # Mapa de teclado
-TIMEZONE="America/Mexico_City" # Zona horaria
+HOSTNAME="arch"
+USERNAME="arch"
+PASSWORD="arch"
+LOCALE="es_MX.UTF-8"
+KEYMAP="la-latin1"
+TIMEZONE="America/Mexico_City"
 
-echo ">>> Formateando disco: $DISK..."
+echo ">>> Formateando disco: $DISK y creando particiones GPT..."
 # Crear tabla de particiones GPT
 parted $DISK mklabel gpt
 # Partición ESP (EFI System Partition) de 300MiB
@@ -68,18 +68,27 @@ echo "root:$PASSWORD" | chpasswd
 # Crear usuario normal con permisos de sudo (grupo wheel)
 useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
-# Configurar sudo para el grupo wheel (permite a los usuarios de wheel ejecutar cualquier comando)
+# Configurar sudo para el grupo wheel
 echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
+
+# **AÑADIR MÓDULOS DE VIRTUALBOX PARA EL KERNEL ZEN**
+echo "vboxguest" > /etc/modules-load.d/virtualbox.conf
+echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf
+mkinitcpio -P # Reconstruir initramfs con los módulos
 
 # Activar servicios necesarios
 systemctl enable NetworkManager # Gestor de red
-systemctl enable vboxservice # Servicios de VirtualBox Guest (para carpetas compartidas, etc.)
+systemctl enable vboxservice # Servicios de VirtualBox Guest
 
 # Instalar y configurar GRUB (para arranque EFI)
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
+echo ">>> Desmontando particiones..."
+# Desmontar todas las particiones del nuevo sistema
+umount -R /mnt
+
 echo ">>> ✅ Instalación completada con Linux Zen."
-echo ">>> Por favor, desmonta las particiones con 'umount -R /mnt', expulsa la ISO y luego reinicia con 'reboot'."
+echo ">>> Por favor, expulsa la ISO de instalación y luego reinicia con 'reboot'."
 echo ">>> Usuario: $USERNAME | Contraseña: $PASSWORD"
