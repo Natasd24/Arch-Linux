@@ -1,52 +1,73 @@
 #!/bin/bash
 
-# --- Script para CORREGIR y crear una configuración funcional de Hyprland ---
-# Soluciona: Error de sintaxis en hyprland.conf (Línea 7) y ventana de Kitty invisible.
+# =========================================================
+# SCRIPT 2 de 2: Instalación y Configuración de Hyprland
+# Diseñado para ejecutarse DESPUÉS de la instalación base de Arch Linux.
+# Soluciona: Teclado Latino, error de sintaxis y ventana de Kitty invisible.
+# =========================================================
+
+set -e
 
 # --- 0. Variables y Directorios ---
 HYPR_CONFIG_DIR="$HOME/.config/hypr"
 HYPR_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprland.conf"
 HYPRPAPER_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprpaper.conf"
+MOD="SUPER" # Tecla Modificadora Principal (Tecla Windows/Super)
 
-echo "--- 1. Creando respaldo y preparando archivos ---"
+echo "--- 1. Actualizando el sistema e instalando paquetes de Hyprland ---"
+# Instalación de paquetes (excluyendo los ya instalados por el script base)
+sudo pacman -Syu --noconfirm
+sudo pacman -S --noconfirm \
+    hyprland \
+    mesa \
+    xorg-xwayland \
+    xdg-desktop-portal-hyprland \
+    qt5-wayland qt6-wayland \
+    polkit-kde-agent \
+    hyprpaper kitty wofi waybar sddm
 
-# Crear respaldo de la configuración rota
+# --- 2. Creación y Configuración Funcional ---
+
+echo "--- 2. Creando directorios de configuración ---"
+mkdir -p "$HYPR_CONFIG_DIR"
+
+# Crear respaldo de configuración anterior si existe
 if [ -f "$HYPR_CONFIG_FILE" ]; then
-    mv "$HYPR_CONFIG_FILE" "$HYPR_CONFIG_FILE.BAK_ROTO"
-    echo "✔ Respaldo de la configuración anterior guardado como .BAK_ROTO"
+    mv "$HYPR_CONFIG_FILE" "$HYPR_CONFIG_FILE.bak"
+    echo "✔ Se creó un respaldo de tu configuración anterior en: $HYPR_CONFIG_FILE.bak"
 fi
 
-# 1.1 Creando hyprland.conf (Configuración principal)
-echo "--- 2. Escribiendo hyprland.conf CORREGIDO ---"
+# 2.1. Creando hyprland.conf (Configuración principal, con FIXES)
+echo "--- Escribiendo hyprland.conf (Teclado Latino, FIXES para VM/Kitty) ---"
 cat <<EOT > "$HYPR_CONFIG_FILE"
 # -----------------------------------------------------
-# Configuración Base FUNCIONAL de Hyprland (Corregida)
+# Configuración Base FUNCIONAL y Optimizada para VBox
 # -----------------------------------------------------
 
 # === 1. Variables ===
-# FIX: Corregido el error de sintaxis de la línea 7
 \$mod = SUPER 
 
-# === 2. Entorno y Compatibilidad (FIX para Kitty invisible) ===
-env = WLR_RENDERER_ALLOW_SOFTWARE,1 # Permite el fallback a software (clave para VirtualBox)
-env = WLR_NO_HARDWARE_CURSORS,1     # Previene problemas con el cursor
-env = GDK_BACKEND,wayland,x11       # Fuerza a las aplicaciones GTK a usar Wayland
+# === 2. Entorno y Compatibilidad (FIX para Kitty invisible y Wayland en VBox) ===
+env = WLR_RENDERER_ALLOW_SOFTWARE,1 
+env = WLR_NO_HARDWARE_CURSORS,1
+env = GDK_BACKEND,wayland,x11
 
-# === 3. Autostart (Aplicaciones al inicio) ===
+# === 3. Autostart ===
 exec-once = hyprpaper &
 exec-once = waybar &
 exec-once = /usr/lib/polkit-kde-authentication-agent-1 & 
+exec-once = systemctl enable vboxservice --now # VBoxservice ya está instalado, solo se fuerza la ejecución
 
-# === 4. Input (Teclado y Ratón) ===
+# === 4. Input (Teclado) ===
 input {
     kb_layout = latam # Configuración para teclado latino
     follow_mouse = 1
     sensitivity = 0
 }
 
-# === 5. Keybindings (Atajos de teclado) ===
+# === 5. Keybindings ===
 
-# Terminal - ¡FIX: Debe abrirse y mostrarse correctamente!
+# Terminal - CLAVE: Abre Kitty con Win + Enter
 bind = \$mod, RETURN, exec, kitty
 
 # Launcher - Wofi
@@ -77,11 +98,10 @@ general {
 }
 
 EOT
-echo "✔ Archivo hyprland.conf (Corregido) creado con éxito."
+echo "✔ Archivo hyprland.conf creado."
 
-
-# 1.2 Creando hyprpaper.conf
-echo "--- 3. Escribiendo hyprpaper.conf (Fondo de color sólido azul) ---"
+# 2.2. Creando hyprpaper.conf (Fondo de Pantalla Sólido)
+echo "--- Escribiendo hyprpaper.conf (Fondo de color sólido) ---"
 cat <<EOT > "$HYPRPAPER_CONFIG_FILE"
 # Configuración de Fondo de Pantalla
 preload =
@@ -90,18 +110,20 @@ EOT
 echo "✔ Archivo hyprpaper.conf creado."
 
 
-# --- 4. Instrucciones Finales ---
+# --- 3. Finalización ---
+echo "--- 3. Habilitando SDDM (Display Manager) ---"
+sudo systemctl enable sddm --now
+
 echo ""
 echo "======================================================="
-echo "        ✅ Configuración FUNCIONAL Aplicada ✅"
+echo "       🎉 Instalación y Configuración Completa 🎉"
 echo "======================================================="
 echo ""
-echo "Para aplicar estos cambios y solucionar los problemas:"
-echo "1. Si estás en la sesión de Hyprland rota, ve al TTY (Ctrl+Alt+F3)."
-echo "2. O simplemente **REINICIA** la máquina virtual."
+echo "PASO FINAL REQUERIDO:"
+echo "Por favor, **REINICIA** tu máquina virtual (MV) para iniciar SDDM:"
+echo "  reboot"
 echo ""
-echo "Después de reiniciar y seleccionar Hyprland en SDDM:"
-echo "• Deberías ver el fondo de pantalla azul oscuro."
-echo "• La Terminal Kitty se abrirá y **mostrará** el contenido al usar:"
-echo "  Tecla **SUPER (Windows) + ENTER**"
-echo ""
+echo "Después de reiniciar, selecciona 'Hyprland' en la pantalla de login de SDDM."
+echo "Una vez dentro, prueba:"
+echo "• Terminal (Kitty): Tecla **SUPER + ENTER**"
+echo "• Launcher (Wofi): Tecla **SUPER + R**"
