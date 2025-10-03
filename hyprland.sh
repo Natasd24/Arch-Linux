@@ -1,67 +1,57 @@
 #!/bin/bash
 # ===================================================================================
-# SCRIPT 2 de 2: Instalación de Hyprland (Versión Final y Robusta)
+# SCRIPT 2 de 2: Instalación de Hyprland (Método Definitivo en Dos Fases)
 #
-# CARACTERÍSTICAS:
-# - Repara automáticamente los servidores de descarga (mirrors) para evitar bloqueos.
-# - Es seguro volver a ejecutarlo: no reinstalará paquetes que ya existan.
-# - Separa los pasos de actualización e instalación para máxima estabilidad.
+# CÓMO FUNCIONA:
+# 1. Este script instala TODOS los paquetes necesarios de forma segura.
+# 2. Luego, CREA un segundo script llamado 'configure_hyprland.sh' en tu home.
+# 3. Te pedirá que reinicies.
+# 4. Después de reiniciar, solo tendrás que ejecutar el segundo script.
 # ===================================================================================
 set -e
 
-# --- 0. Variables y Directorios ---
+# --- FASE 1: INSTALACIÓN DE PAQUETES ---
+
+echo "--- FASE 1 de 2: Preparando el sistema e instalando TODOS los paquetes ---"
+
+# Limpia y optimiza los mirrors para evitar bloqueos en las descargas
+sudo rm -f /var/lib/pacman/db.lck
+sudo pacman -S --needed --noconfirm reflector
+sudo reflector --verbose --country Mexico --country 'United States' -l 6 --sort rate --save /etc/pacman.d/mirrorlist
+sudo pacman -Syyu --noconfirm
+
+# Instala el entorno gráfico y todas las aplicaciones
+echo "--> Instalando Hyprland y todos los componentes..."
+sudo pacman -S --needed --noconfirm \
+    hyprland mesa xorg-xwayland xdg-desktop-portal-hyprland \
+    qt5-wayland qt6-wayland polkit-kde-agent \
+    pipewire wireplumber pipewire-pulse pipewire-alsa \
+    hyprpaper kitty wofi waybar sddm
+
+echo "✔ Todos los paquetes han sido instalados correctamente."
+echo ""
+
+# --- FASE 2: CREACIÓN DEL SCRIPT DE CONFIGURACIÓN ---
+
+echo "--- FASE 2 de 2: Creando el script de configuración para el siguiente reinicio ---"
+
+# Usamos $SUDO_USER para asegurarnos de que el script se cree en TU home, no en el de root
+cat <<'EOT' > /home/$SUDO_USER/configure_hyprland.sh
+#!/bin/bash
+# Este script se ejecuta DESPUÉS del primer reinicio para configurar Hyprland.
+set -e
+
+echo "--- Iniciando configuración de Hyprland ---"
+
 HYPR_CONFIG_DIR="$HOME/.config/hypr"
 HYPR_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprland.conf"
 HYPRPAPER_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprpaper.conf"
-MOD="SUPER" # Tecla Modificadora Principal (Tecla Windows/Super)
+MOD="SUPER"
 
-# --- 1. Preparación y Optimización de Mirrors ---
-echo "--- Paso 1: Preparando el sistema y optimizando los servidores de descarga ---"
-
-# Elimina el archivo de bloqueo de pacman por si una ejecución anterior falló
-sudo rm -f /var/lib/pacman/db.lck
-
-echo "--> Instalando 'reflector' para optimizar los mirrors..."
-sudo pacman -S --needed --noconfirm reflector
-
-echo "--> Optimizando la lista de mirrors (servidores). Esto puede tardar un minuto..."
-sudo reflector --verbose --country Mexico --country 'United States' -l 6 --sort rate --save /etc/pacman.d/mirrorlist
-
-echo "--> Forzando la sincronización con los nuevos mirrors..."
-sudo pacman -Syyu --noconfirm
-
-# --- 2. Instalación de Paquetes del Entorno Gráfico ---
-echo "--- Paso 2: Instalando el entorno Hyprland y las aplicaciones ---"
-sudo pacman -S --needed --noconfirm \
-    hyprland \
-    mesa \
-    xorg-xwayland \
-    xdg-desktop-portal-hyprland \
-    qt5-wayland qt6-wayland \
-    polkit-kde-agent \
-    \
-    # Servidor de Sonido Moderno (PipeWire)
-    pipewire \
-    wireplumber \
-    pipewire-pulse \
-    pipewire-alsa \
-    \
-    # Componentes del Entorno Gráfico
-    hyprpaper kitty wofi waybar sddm
-
-echo "✔ Instalación de paquetes completada."
-
-# --- 3. Creación de Archivos de Configuración ---
-echo "--- Paso 3: Creando los archivos de configuración ---"
 mkdir -p "$HYPR_CONFIG_DIR"
 
-if [ -f "$HYPR_CONFIG_FILE" ]; then
-    mv "$HYPR_CONFIG_FILE" "$HYPR_CONFIG_FILE.bak"
-    echo "✔ Se creó un respaldo de tu configuración anterior."
-fi
-
-echo "--> Escribiendo hyprland.conf..."
-cat <<EOT > "$HYPR_CONFIG_FILE"
+echo "--> Creando archivos de configuración..."
+cat <<'EOF' > "$HYPR_CONFIG_FILE"
 # Configuración Base para Hyprland
 \$mod = SUPER
 env = GDK_BACKEND,wayland,x11
@@ -89,25 +79,35 @@ general {
     col.inactive_border = rgb(4c566a)
     layout = dwindle
 }
-EOT
+EOF
 
-echo "--> Escribiendo hyprpaper.conf..."
-cat <<EOT > "$HYPRPAPER_CONFIG_FILE"
+cat <<'EOF' > "$HYPRPAPER_CONFIG_FILE"
 # Configuración de Fondo de Pantalla
 preload =
-wallpaper = monitorname, 0x1A202C 
-EOT
-echo "✔ Archivos de configuración creados."
+wallpaper = monitorname, 0x1A202C
+EOF
 
-# --- 4. Finalización ---
-echo "--- Paso 4: Habilitando el Inicio de Sesión Gráfico ---"
+echo "--> Habilitando el inicio de sesión gráfico (SDDM)..."
 sudo systemctl enable sddm
 
 echo ""
-echo "======================================================="
-echo "       🎉 ¡Instalación y Configuración Completa! 🎉"
-echo "======================================================="
+echo "=============================================="
+echo "    ✅ ¡Configuración finalizada!"
+echo "=============================================="
 echo ""
-echo "PASO FINAL REQUERIDO:"
-echo "Por favor, **REINICIA** tu PC para iniciar tu nuevo escritorio:"
+echo "Ahora reinicia una última vez para entrar a tu escritorio:"
 echo "  reboot"
+EOT
+
+# Da permisos de ejecución al nuevo script
+chmod +x /home/$SUDO_USER/configure_hyprland.sh
+
+echo "✔ Se ha creado el script 'configure_hyprland.sh' en tu carpeta de inicio."
+echo ""
+echo "================================================================================"
+echo "         PASO CRÍTICO: ¡AHORA DEBES REINICIAR!"
+echo "================================================================================"
+echo ""
+echo "La instalación de paquetes ha terminado. Para continuar, reinicia el sistema:"
+echo "  reboot"
+echo ""
