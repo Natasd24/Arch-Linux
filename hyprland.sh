@@ -1,9 +1,10 @@
 #!/bin/bash
-# =========================================================
-# SCRIPT 2 de 2: Instalación y Configuración de Hyprland
+# =======================================================================
+# SCRIPT 2 de 2: Instalación y Configuración de Hyprland (Versión Robusta)
 # Diseñado para ejecutarse DESPUÉS de la instalación base en una PC real.
-# Incluye: Teclado Latino y Sistema de sonido completo con PipeWire.
-# =========================================================
+# CORRECCIÓN: Separa la actualización del sistema de la instalación de paquetes
+# para evitar bloqueos durante la transacción.
+# =======================================================================
 set -e
 
 # --- 0. Variables y Directorios ---
@@ -12,9 +13,15 @@ HYPR_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprland.conf"
 HYPRPAPER_CONFIG_FILE="$HYPR_CONFIG_DIR/hyprpaper.conf"
 MOD="SUPER" # Tecla Modificadora Principal (Tecla Windows/Super)
 
-echo "--- 1. Actualizando el sistema e instalando paquetes de Hyprland y Sonido ---"
+# --- 1. Actualización e Instalación de Paquetes (en Pasos Separados) ---
+echo "--- Paso 1: Actualización e Instalación de Paquetes ---"
+
+echo "--> 1.1: Sincronizando repositorios y actualizando el sistema base..."
 sudo pacman -Syu --noconfirm
-sudo pacman -S --noconfirm \
+
+echo "--> 1.2: Instalando Hyprland, sonido y todas las aplicaciones gráficas..."
+# Se usa --needed para no reinstalar paquetes que ya están actualizados.
+sudo pacman -S --needed --noconfirm \
     hyprland \
     mesa \
     xorg-xwayland \
@@ -31,8 +38,10 @@ sudo pacman -S --noconfirm \
     # Componentes del Entorno Gráfico
     hyprpaper kitty wofi waybar sddm
 
+echo "✔ Instalación de paquetes completada."
+
 # --- 2. Creación y Configuración Funcional ---
-echo "--- 2. Creando directorios de configuración ---"
+echo "--- Paso 2: Creando directorios y archivos de configuración ---"
 mkdir -p "$HYPR_CONFIG_DIR"
 
 if [ -f "$HYPR_CONFIG_FILE" ]; then
@@ -40,7 +49,7 @@ if [ -f "$HYPR_CONFIG_FILE" ]; then
     echo "✔ Se creó un respaldo de tu configuración anterior en: $HYPR_CONFIG_FILE.bak"
 fi
 
-echo "--- Escribiendo hyprland.conf (Configuración para PC Real) ---"
+echo "--> Escribiendo hyprland.conf..."
 cat <<EOT > "$HYPR_CONFIG_FILE"
 # -----------------------------------------------------
 # Configuración Base para Hyprland
@@ -87,7 +96,7 @@ general {
 EOT
 echo "✔ Archivo hyprland.conf creado."
 
-echo "--- Escribiendo hyprpaper.conf (Fondo de color sólido) ---"
+echo "--> Escribiendo hyprpaper.conf..."
 cat <<EOT > "$HYPRPAPER_CONFIG_FILE"
 # Configuración de Fondo de Pantalla
 preload =
@@ -96,7 +105,7 @@ EOT
 echo "✔ Archivo hyprpaper.conf creado."
 
 # --- 3. Finalización ---
-echo "--- 3. Habilitando SDDM (Display Manager) ---"
+echo "--- Paso 3: Habilitando el Inicio de Sesión Gráfico (SDDM) ---"
 sudo systemctl enable sddm --now
 
 echo ""
