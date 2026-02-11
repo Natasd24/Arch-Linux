@@ -57,7 +57,8 @@ mount "$EFI_PARTITION" /mnt/boot/efi
 # --- 4. Instalación de Paquetes Base ---
 echo ">>> 3. Instalando sistema base con kernel Linux Zen y utilidades esenciales..."
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
-vim nano networkmanager grub efibootmgr sudo git xdg-user-dirs polkit os-prober
+vim nano networkmanager grub efibootmgr sudo git xdg-user-dirs polkit os-prober \
+virtualbox-guest-utils amd-ucode
 
 echo ">>> 4. Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
