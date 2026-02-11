@@ -1,20 +1,19 @@
 #!/bin/bash
 set -e
 
-# --- 1. Optimización de Mirrors y Sistema ---
-echo "--> Optimizando mirrors para México y EE. UU..."
+# --- 1. Optimización de Mirrors ---
+echo "--> Optimizando mirrors para máxima velocidad (México y EE. UU.)..."
 sudo pacman -S --needed --noconfirm reflector
 sudo reflector --verbose --country Mexico --country 'United States' -l 6 --sort rate --save /etc/pacman.d/mirrorlist
-
-echo "--> Actualizando el sistema..."
 sudo pacman -Syyu --noconfirm
 
-# --- 2. Paru (AUR Helper) ---
-echo "--> Instalando dependencias de compilación y Paru..."
+# --- 2. Herramientas Base y AUR Helper (Paru) ---
+echo "--> Instalando base-devel y git..."
 sudo pacman -S --needed --noconfirm base-devel git
 
-# Compilación de paru
+echo "--> Instalando Paru..."
 if ! command -v paru &> /dev/null; then
+    # Usamos un directorio temporal para no ensuciar el home
     TEMP_DIR=$(mktemp -d)
     git clone https://aur.archlinux.org/paru.git "$TEMP_DIR/paru"
     cd "$TEMP_DIR/paru"
@@ -24,20 +23,20 @@ if ! command -v paru &> /dev/null; then
 fi
 
 # --- 3. Caelestia Shell ---
-echo "--> Instalando Caelestia Shell..."
-# Necesitamos fish para correr su instalador
+echo "--> Preparando instalación de Caelestia Shell..."
+# Se requiere fish para ejecutar el instalador de Caelestia
 sudo pacman -S --needed --noconfirm fish
 
 if [ ! -d "$HOME/.local/share/caelestia" ]; then
     git clone https://github.com/caelestia-dots/caelestia.git ~/.local/share/caelestia
-    # Ejecutamos con --noconfirm como vimos que funcionaba mejor
-    fish ~/.local/share/caelestia/install.fish --noconfirm
+    # Ejecución del script de instalación oficial
+    fish ~/.local/share/caelestia/install.fish
 else
-    echo "Caelestia ya está descargado. Omitiendo clonación."
+    echo "Caelestia ya está clonado en ~/.local/share/caelestia"
 fi
 
-# --- 4. Aplicaciones Extra y Gaming ---
-echo "--> Instalando herramientas de sistema, Discord y Meta-Gaming..."
+# --- 4. Aplicaciones de Sistema y Utilidades ---
+echo "--> Instalando aplicaciones finales..."
 sudo pacman -S --needed --noconfirm \
     thunar \
     network-manager-applet \
@@ -47,10 +46,7 @@ sudo pacman -S --needed --noconfirm \
     discord \
     gvfs \
     thunar-volman \
-    p7zip \
-    cachyos-gaming-meta
+    p7zip
 
-echo ""
-echo "===================================================="
-echo "   ✅ ¡Optimización y Setup completado, Natas!     "
-echo "===================================================="
+echo "---"
+echo "✅ Proceso completado. Sistema Arch Linux configurado y limpio."
