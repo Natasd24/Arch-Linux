@@ -63,7 +63,7 @@ echo ">>> 4. Instalando paquetes (Kernel Zen + Drivers Intel/VBox)..."
 # Se incluye 'intel-ucode' y drivers gráficos/utils de VirtualBox
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware base-devel \
 vim nano networkmanager grub efibootmgr sudo git xdg-user-dirs polkit os-prober \
-virtualbox-guest-utils xf86-video-vmware intel-ucode
+xf86-video-vmware intel-ucode
 
 echo ">>> 5. Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
