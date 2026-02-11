@@ -1,42 +1,73 @@
 #!/bin/bash
 set -e
 
-# --- 1. Optimización de Mirrors ---
-echo "--> Optimizando mirrors para máxima velocidad (México y EE. UU.)..."
+echo "==================================================="
+echo "   INSTALADOR CAELESTIA SHELL - EDICIÓN VIRTUALBOX"
+echo "==================================================="
+
+# --- 1. Optimización y Drivers de VirtualBox (CRÍTICO) ---
+echo "--> 1. Optimizando espejos y actualizando..."
 sudo pacman -S --needed --noconfirm reflector
 sudo reflector --verbose --country Mexico --country 'United States' -l 6 --sort rate --save /etc/pacman.d/mirrorlist
 sudo pacman -Syyu --noconfirm
 
-# --- 2. Herramientas Base y AUR Helper (Paru) ---
-echo "--> Instalando base-devel y git..."
+echo "--> 2. Instalando Drivers de Video y Guest Utils..."
+# 'mesa' es necesario para OpenGL en Hyprland
+sudo pacman -S --needed --noconfirm virtualbox-guest-utils mesa
+sudo systemctl enable --now vboxservice
+
+# --- 2. Herramientas Base y AUR Helper (Paru BINARIO) ---
+echo "--> 3. Instalando herramientas base..."
 sudo pacman -S --needed --noconfirm base-devel git
 
-echo "--> Instalando Paru..."
+echo "--> 4. Instalando Paru (Versión BINARIA para ahorrar RAM)..."
+# Usamos paru-bin para que no compile rust y no reviente la memoria
 if ! command -v paru &> /dev/null; then
-    # Usamos un directorio temporal para no ensuciar el home
     TEMP_DIR=$(mktemp -d)
-    git clone https://aur.archlinux.org/paru.git "$TEMP_DIR/paru"
+    # NOTA: Clonamos paru-bin, no paru normal
+    git clone https://aur.archlinux.org/paru-bin.git "$TEMP_DIR/paru"
     cd "$TEMP_DIR/paru"
     makepkg -si --noconfirm
     cd ~
     rm -rf "$TEMP_DIR"
+else
+    echo "Paru ya está instalado."
 fi
 
-# --- 3. Caelestia Shell ---
-echo "--> Preparando instalación de Caelestia Shell..."
-# Se requiere fish para ejecutar el instalador de Caelestia
-sudo pacman -S --needed --noconfirm fish
+# --- 3. Instalación MANUAL de Dependencias (Para evitar corrupción) ---
+echo "--> 5. Instalando dependencias de Caelestia por separado..."
+# Instalamos lo pesado antes para que el script de Caelestia solo configure
+sudo pacman -S --needed --noconfirm \
+    hyprland \
+    fish \
+    kitty \
+    wofi \
+    waybar \
+    swww \
+    dunst \
+    starship \
+    ttf-jetbrains-mono-nerd \
+    noto-fonts-emoji \
+    polkit-gnome \
+    qt5-wayland \
+    qt6-wayland \
+    xdg-desktop-portal-hyprland
 
+# --- 4. Caelestia Shell ---
+echo "--> 6. Clonando e instalando Caelestia Shell..."
 if [ ! -d "$HOME/.local/share/caelestia" ]; then
     git clone https://github.com/caelestia-dots/caelestia.git ~/.local/share/caelestia
-    # Ejecución del script de instalación oficial
-    fish ~/.local/share/caelestia/install.fish
+    
+    echo "Ejecutando instalador de Caelestia..."
+    # Ejecutamos el script. Como ya instalamos las dependencias arriba, 
+    # esto debería ser rápido y sin errores.
+    fish ~/.local/share/caelestia/install.fish --noconfirm
 else
-    echo "Caelestia ya está clonado en ~/.local/share/caelestia"
+    echo "Caelestia ya estaba clonado. Saltando clonación."
 fi
 
-# --- 4. Aplicaciones de Sistema y Utilidades ---
-echo "--> Instalando aplicaciones finales..."
+# --- 5. Aplicaciones Extra ---
+echo "--> 7. Instalando aplicaciones finales..."
 sudo pacman -S --needed --noconfirm \
     thunar \
     network-manager-applet \
@@ -48,5 +79,13 @@ sudo pacman -S --needed --noconfirm \
     thunar-volman \
     p7zip
 
-echo "---"
-echo "✅ Proceso completado. Sistema Arch Linux configurado y limpio."
+# --- 6. PARCHE FINAL PARA VIRTUALBOX (Anti-Pantalla Negra) ---
+echo "--> 8. Aplicando parche para cursor en VirtualBox..."
+# Esto crea un archivo que fuerza a Hyprland a funcionar en VM
+mkdir -p ~/.config/hypr
+echo "env = WLR_NO_HARDWARE_CURSORS,1" >> ~/.config/hypr/hyprland.conf
+
+echo "==================================================="
+echo "✅ INSTALACIÓN COMPLETADA."
+echo "Reinicia y escribe 'Hyprland' para entrar."
+echo "==================================================="
